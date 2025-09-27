@@ -277,7 +277,7 @@ var _ = Describe("String Commands", func() {
 			Expect(getBit.Err()).NotTo(HaveOccurred())
 			Expect(getBit.Val()).To(Equal(int64(0)))
 		})
-				
+
 		It("should GetRange", func() {
 			set := client.Set(ctx, "key", "This is a string", 0)
 			Expect(set.Err()).NotTo(HaveOccurred())
@@ -298,6 +298,24 @@ var _ = Describe("String Commands", func() {
 			getRange = client.GetRange(ctx, "key", 10, 100)
 			Expect(getRange.Err()).NotTo(HaveOccurred())
 			Expect(getRange.Val()).To(Equal("string"))
+		})
+
+		//Caiyu's test cases for GETRANGE and SETRANGE to fix bug #3092.
+		It("should not crash on huge GETRANGE", func() {
+			set := client.Set(ctx, "key1", "abc", 0)
+			Expect(set.Err()).NotTo(HaveOccurred())
+			Expect(set.Val()).To(Equal("OK"))
+			getRange1 := client.GetRange(ctx, "key1", 1, 4294967296)
+    		Expect(getRange1.Val()).To(Equal("bc"))
+    		getRange2 := client.GetRange(ctx, "key1", 1, 4294967296)
+    		Expect(getRange2.Val()).To(Equal("bc"))
+		})
+		It("should not crash on huge SETRANGE", func() {
+			set := client.Set(ctx, "key1", "abc", 0)
+			Expect(set.Err()).NotTo(HaveOccurred())
+			Expect(set.Val()).To(Equal("OK"))
+			setRange := client.SetRange(ctx, "key1", 9223372036854775757, "value2")
+			Expect(setRange.Err()).To(HaveOccurred())
 		})
 
 		It("should GetSet", func() {
@@ -798,24 +816,24 @@ var _ = Describe("String Commands", func() {
 		})
 
 		It("should SetEX ten seconds", func() {
-			err := client.SetEx(ctx, "x", "y", 10 * time.Second).Err()
+			err := client.SetEx(ctx, "x", "y", 10*time.Second).Err()
 			Expect(err).NotTo(HaveOccurred())
-		
+
 			val, err := client.Get(ctx, "x").Result()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(Equal("y"))
-		
+
 			time.Sleep(11 * time.Second)
 			//sleep 10 second x still exists
-		
+
 			err = client.Do(ctx, "compact").Err()
 			Expect(err).NotTo(HaveOccurred())
-		
+
 			keys, err := client.Keys(ctx, "x").Result()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(keys).To(BeEmpty())
 		})
-		
+
 		It("should SetNX", func() {
 			_, err := client.Del(ctx, "key").Result()
 			Expect(err).NotTo(HaveOccurred())
@@ -1016,6 +1034,26 @@ var _ = Describe("String Commands", func() {
 		//	Expect(dryRun.Err()).To(HaveOccurred())
 		//	Expect(dryRun.Err().Error()).To(Equal("ERR Error loading the extension. Please check the server logs."))
 		//})
+
+
+		It("should ManifestIngest", func() {
+			// 1. 调用 manifestingest，传入准备好的 manifest 文件
+			res := client.Do(ctx, "manifestingest", "manifest_1758983376565168000_part0.proto")
+			Expect(res.Err()).NotTo(HaveOccurred())
+			val, err := res.Text()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(ContainSubstring("Manifest Ingested Successfully"))
+
+			// 2. 校验几个 key-value 确实 ingest 进来了
+			get := client.Get(ctx, "key_020031894317")
+			Expect(get.Err()).NotTo(HaveOccurred())
+			Expect(get.Val()).To(Equal("value_208226403161192277"))
+
+			get = client.Get(ctx, "key_100100111634")
+			Expect(get.Err()).NotTo(HaveOccurred())
+			Expect(get.Val()).To(Equal("value_531771181381646742"))
+		})
+
 
 	})
 })

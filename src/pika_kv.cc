@@ -11,6 +11,27 @@
 #include "include/pika_cache.h"
 #include "include/pika_conf.h"
 #include "pstd/include/pstd_string.h"
+#include "ingest/include/ingest_s3_service.h"
+#include "ingest/include/sst_downloader.h"
+
+#include <aws/core/Aws.h>
+#include <aws/core/auth/AWSCredentials.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/GetObjectRequest.h>
+#include <google/protobuf/map.h>
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <deque>
+#include <filesystem>
+#include <fstream>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <nlohmann/json.hpp>
+#include <random>
+#include <string>
+#include <vector>
 
 extern std::unique_ptr<PikaConf> g_pika_conf;
 /* SET key value [NX] [XX] [EX <seconds>] [PX <milliseconds>] */
@@ -195,6 +216,64 @@ void GetCmd::DoUpdateCache() {
     db_->cache()->WriteKVToCache(key_, value_, ttl_millsec_ > 0 ? ttl_millsec_ / 1000 : ttl_millsec_);
   }
 }
+
+void ManifestIngestCmd::DoInitial() {
+  LOG(INFO) << "[ManifestIngestCmd] Starting DoInitial";
+
+  if (!CheckArg(argv_.size())) {
+    res_.SetRes(CmdRes::kWrongNum, kCmdNameManifestIngest);
+    LOG(WARNING) << "[ManifestIngestCmd] Wrong number of arguments";
+    return;
+  }
+
+  key_ = argv_[1];
+  ingest_conf_path_ = g_pika_conf->ingest_conf_path();
+
+  // 下载所有 SST
+  SstDownloader* downloader = g_pika_server->s3()->Downloader();
+  rocksdb::Status s_  = downloader->DownloadAllFiles(key_, sst_files_path_);
+
+  if (!s_.ok()) {
+    res_.SetRes(CmdRes::kErrOther, s_.ToString());
+    LOG(ERROR) << "[ManifestIngestCmd] Download failed: " << s_.ToString();
+    return;
+  }
+
+  LOG(INFO) << "[ManifestIngestCmd] DoInitial completed successfully, files=" << sst_files_path_.size();
+}
+
+void ManifestIngestCmd::Do() {
+  LOG(INFO) << "[ManifestIngestCmd] Starting Do (SST Ingest)";
+
+  s_ = db_->storage()->SstExtendIngest(
+      storage::DataType::kStrings,
+      sst_files_path_,
+      key_,
+      ingest_conf_path_);
+
+  if (s_.ok()) {
+    res_.SetRes(CmdRes::kOk);
+    res_.AppendContent("Manifest Ingested Successfully");
+    LOG(INFO) << "[ManifestIngestCmd] SST Ingest successful for " << sst_files_path_.size() << " files";
+  } else if (s_.IsNotFound()) {
+    res_.AppendStringLen(-1);
+    LOG(WARNING) << "[ManifestIngestCmd] SST Ingest not found";
+  } else if (s_.IsInvalidArgument()) {
+    res_.SetRes(CmdRes::kMultiKey);
+    LOG(ERROR) << "[ManifestIngestCmd] SST Ingest failed: MultiKey error";
+  } else {
+    res_.SetRes(CmdRes::kErrOther, s_.ToString());
+    LOG(ERROR) << "[ManifestIngestCmd] SST Ingest failed: " << s_.ToString();
+  }
+
+  LOG(INFO) << "[ManifestIngestCmd] Do (SST Ingest) completed, key=" << key_;
+}
+
+void ManifestIngestCmd::DoThroughDB() {
+  res_.clear();
+  Do();
+}
+
 
 void DelCmd::DoInitial() {
   if (!CheckArg(argv_.size())) {
@@ -897,7 +976,7 @@ std::string SetexCmd::ToRedisProtocol() {
   RedisAppendContent(content, key_);
   // time_stamp
   char buf[100];
-  auto time_stamp = time(nullptr) + ttl_sec_;
+  int64_t time_stamp  = static_cast<int64_t>(::time(nullptr)) + ttl_sec_;
   pstd::ll2string(buf, 100, time_stamp);
   std::string at(buf);
   RedisAppendLenUint64(content, at.size(), "$");
@@ -955,8 +1034,9 @@ std::string PsetexCmd::ToRedisProtocol() {
   RedisAppendLenUint64(content, key_.size(), "$");
   RedisAppendContent(content, key_);
   // time_stamp
+  int64_t expire_at_ms = pstd::NowMillis() + ttl_millsec;
+  int64_t time_stamp = expire_at_ms / 1000;
   char buf[100];
-  auto time_stamp = pstd::NowMillis() + ttl_millsec;
   pstd::ll2string(buf, 100, time_stamp);
   std::string at(buf);
   RedisAppendLenUint64(content, at.size(), "$");
@@ -1146,6 +1226,7 @@ void GetrangeCmd::Do() {
   std::string substr;
   STAGE_TIMER_GUARD(storage_duration_ms, true);
   s_= db_->storage()->Getrange(key_, start_, end_, &substr);
+  
   if (s_.ok() || s_.IsNotFound()) {
     res_.AppendStringLenUint64(substr.size());
     res_.AppendContent(substr);
@@ -1194,12 +1275,25 @@ void SetrangeCmd::DoInitial() {
     res_.SetRes(CmdRes::kWrongNum, kCmdNameSetrange);
     return;
   }
-  key_ = argv_[1];
+  key_ = argv_[1];  
   if (pstd::string2int(argv_[2].data(), argv_[2].size(), &offset_) == 0) {
     res_.SetRes(CmdRes::kInvalidInt);
     return;
   }
+  
   value_ = argv_[3];
+  
+  // Read the proto-max-bulk-len parameter settings in the pika configuration file pika_conf
+  const int64_t PROTO_MAX_BULK_LEN = g_pika_conf->proto_max_bulk_len();
+  //Handle the overflow issue of offset_
+  if (offset_ < 0) {
+    res_.SetRes(CmdRes::kInvalidInt, "offset is out of range");
+    return;
+  }
+  if (offset_ > PROTO_MAX_BULK_LEN - static_cast<int64_t>(value_.size())) {
+    res_.SetRes(CmdRes::kErrOther, "string exceeds maximum allowed size (proto-max-bulk-len)");
+    return;
+  }
 }
 
 void SetrangeCmd::Do() {
@@ -1791,7 +1885,9 @@ void PKSetexAtCmd::DoInitial() {
 }
 
 void PKSetexAtCmd::Do() {
-  s_ = db_->storage()->PKSetexAt(key_, value_, static_cast<int32_t>(time_stamp_sec_ * 1000));
+  // Use int64_t to avoid overflow
+  int64_t time_stamp_ms = static_cast<int64_t>(time_stamp_sec_) * 1000;
+  s_ = db_->storage()->PKSetexAt(key_, value_, time_stamp_ms);
   if (s_.ok()) {
     res_.SetRes(CmdRes::kOk);
   } else if (s_.IsInvalidArgument()) {

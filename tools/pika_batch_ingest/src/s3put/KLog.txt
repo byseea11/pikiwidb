@@ -1,0 +1,137 @@
+2025-07-28 18:27:18 [DEBUG] SstTracker initialized: N5s3put10SstTrackerE
+2025-07-28 18:27:18 [DEBUG] Initializing S3Uploader with config: /home/byseea/code/opensum/pika_batch_ingest/config/s3_config.json
+2025-07-28 18:27:19 [DEBUG] AWS SDK initialized
+2025-07-28 18:27:25 [DEBUG] S3 client initialized with region: ap-northeast-3
+2025-07-28 18:27:25 [DEBUG] S3Uploader initialized: N5s3put10S3UploaderE
+2025-07-28 18:27:25 [INFO] S3SyncManager started.
+2025-07-28 18:27:25 [DEBUG] Scanning SST directory...
+2025-07-28 18:27:25 [DEBUG] Detected 9 SST changes
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst generated sst_key: sst/kvdict/data_3_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst generated sst_key: sst/kvdict/data_1_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst generated sst_key: sst/kvdict/data_4_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst generated sst_key: sst/kvdict/data_6_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst generated sst_key: sst/kvdict/data_0_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst generated sst_key: sst/kvdict/data_7_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst generated sst_key: sst/kvdict/data_8_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst generated sst_key: sst/kvdict/data_2_20250728T182725.sst
+2025-07-28 18:27:25 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst
+2025-07-28 18:27:25 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T182725.sst
+2025-07-28 18:27:44 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T182725.sst
+2025-07-28 18:28:39 [DEBUG] SstTracker initialized: N5s3put10SstTrackerE
+2025-07-28 18:28:39 [DEBUG] Initializing S3Uploader with config: /home/byseea/code/opensum/pika_batch_ingest/config/s3_config.json
+2025-07-28 18:28:39 [DEBUG] AWS SDK initialized
+2025-07-28 18:28:45 [DEBUG] S3 client initialized with region: ap-northeast-3
+2025-07-28 18:28:45 [DEBUG] S3Uploader initialized: N5s3put10S3UploaderE
+2025-07-28 18:28:45 [INFO] S3SyncManager started.
+2025-07-28 18:28:45 [DEBUG] Scanning SST directory...
+2025-07-28 18:28:45 [DEBUG] Detected 9 SST changes
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst generated sst_key: sst/kvdict/data_3_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst generated sst_key: sst/kvdict/data_1_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst generated sst_key: sst/kvdict/data_4_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst generated sst_key: sst/kvdict/data_6_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst generated sst_key: sst/kvdict/data_0_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst generated sst_key: sst/kvdict/data_7_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst generated sst_key: sst/kvdict/data_8_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst generated sst_key: sst/kvdict/data_2_20250728T182845.sst
+2025-07-28 18:28:45 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst
+2025-07-28 18:28:45 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T182845.sst
+2025-07-28 18:28:55 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T182845.sst
+2025-07-28 18:30:28 [DEBUG] SstTracker initialized: N5s3put10SstTrackerE
+2025-07-28 18:30:28 [DEBUG] Initializing S3Uploader with config: /home/byseea/code/opensum/pika_batch_ingest/config/s3_config.json
+2025-07-28 18:30:28 [DEBUG] AWS SDK initialized
+2025-07-28 18:30:34 [DEBUG] S3 client initialized with region: ap-northeast-3
+2025-07-28 18:30:34 [DEBUG] S3Uploader initialized: N5s3put10S3UploaderE
+2025-07-28 18:30:34 [INFO] S3SyncManager started.
+2025-07-28 18:30:34 [DEBUG] Scanning SST directory...
+2025-07-28 18:30:34 [DEBUG] Detected 10 SST changes
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst generated sst_key: sst/kvdict/data_3_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst generated sst_key: sst/kvdict/data_5_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst generated sst_key: sst/kvdict/data_1_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst generated sst_key: sst/kvdict/data_4_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst generated sst_key: sst/kvdict/data_6_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst generated sst_key: sst/kvdict/data_0_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst generated sst_key: sst/kvdict/data_7_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst generated sst_key: sst/kvdict/data_8_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst generated sst_key: sst/kvdict/data_2_20250728T183034.sst
+2025-07-28 18:30:34 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst
+2025-07-28 18:30:34 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T183034.sst
+2025-07-28 18:30:43 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T183034.sst
+2025-07-28 18:40:11 [DEBUG] SstTracker initialized: N5s3put10SstTrackerE
+2025-07-28 18:40:11 [DEBUG] Initializing S3Uploader with config: /home/byseea/code/opensum/pika_batch_ingest/config/s3_config.json
+2025-07-28 18:40:11 [DEBUG] AWS SDK initialized
+2025-07-28 18:40:17 [DEBUG] S3 client initialized with region: ap-northeast-3
+2025-07-28 18:40:17 [DEBUG] S3Uploader initialized: N5s3put10S3UploaderE
+2025-07-28 18:40:17 [INFO] S3SyncManager started.
+2025-07-28 18:40:17 [DEBUG] Scanning SST directory...
+2025-07-28 18:40:17 [DEBUG] Detected 8 SST changes
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst generated sst_key: sst/kvdict/data_5_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst generated sst_key: sst/kvdict/data_1_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst generated sst_key: sst/kvdict/data_4_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_6.sst generated sst_key: sst/kvdict/data_6_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst generated sst_key: sst/kvdict/data_0_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst generated sst_key: sst/kvdict/data_8_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst generated sst_key: sst/kvdict/data_2_20250728T184017.sst
+2025-07-28 18:40:17 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst
+2025-07-28 18:40:17 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T184017.sst
+2025-07-28 18:56:27 [DEBUG] SstTracker initialized: N5s3put10SstTrackerE
+2025-07-28 18:56:27 [DEBUG] Initializing S3Uploader with config: /home/byseea/code/opensum/pika_batch_ingest/config/s3_config.json
+2025-07-28 18:56:27 [DEBUG] AWS SDK initialized
+2025-07-28 18:56:33 [DEBUG] S3 client initialized with region: ap-northeast-3
+2025-07-28 18:56:33 [DEBUG] S3Uploader initialized: N5s3put10S3UploaderE
+2025-07-28 18:56:33 [INFO] S3SyncManager started.
+2025-07-28 18:56:33 [DEBUG] Scanning SST directory...
+2025-07-28 18:56:33 [DEBUG] Detected 9 SST changes
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst generated sst_key: sst/kvdict/data_3_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_5.sst generated sst_key: sst/kvdict/data_5_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_1.sst generated sst_key: sst/kvdict/data_1_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_4.sst generated sst_key: sst/kvdict/data_4_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_0.sst generated sst_key: sst/kvdict/data_0_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_7.sst generated sst_key: sst/kvdict/data_7_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_8.sst generated sst_key: sst/kvdict/data_8_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_2.sst generated sst_key: sst/kvdict/data_2_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Setting SST filename for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst
+2025-07-28 18:56:33 [DEBUG] cache path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_9.sst generated sst_key: sst/kvdict/data_9_20250728T185633.sst
+2025-07-28 18:56:33 [DEBUG] Cache hit for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst -> sst/kvdict/data_3_20250728T185633.sst
+2025-07-28 18:56:42 [DEBUG] Cache hit for path: /home/byseea/code/opensum/pika_batch_ingest/data/sst/kvdict/data_3.sst -> sst/kvdict/data_3_20250728T185633.sst
+2025-09-08 16:19:27 [INFO] [Agent] Started.
+2025-09-08 16:19:28 [ERROR] [S3Fetcher] Failed to fetch .manifest: The specified key does not exist.

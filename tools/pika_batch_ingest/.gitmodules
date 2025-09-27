@@ -1,0 +1,7 @@
+
+[submodule "third/ThreadPool"]
+	path = third/ThreadPool
+	url = https://github.com/progschj/ThreadPool.git
+[submodule "third/redis"]
+	path = third/redis
+	url = https://github.com/redis/redis.git

@@ -6,10 +6,22 @@
 #ifndef PIKA_KV_H_
 #define PIKA_KV_H_
 
-#include "storage/storage.h"
-#include "include/pika_db.h"
+#include <aws/core/Aws.h>
+#include <aws/s3/S3Client.h>
+#include <aws/transfer/TransferManager.h>
+#include <atomic>
+#include <filesystem>
+#include <mutex>
+#include <nlohmann/json.hpp>
 #include "include/acl.h"
 #include "include/pika_command.h"
+#include "include/pika_db.h"
+#include "storage/storage.h"
+#include "ingest/include/sst_downloader.h"
+#include "pika_server.h"            
+#include "ingest/include/ingest_s3_service.h" 
+
+extern PikaServer *g_pika_server;
 
 /*
  * kv
@@ -75,6 +87,35 @@ class GetCmd : public Cmd {
   void DoInitial() override;
   rocksdb::Status s_;
 };
+
+class ManifestIngestCmd : public Cmd {
+ public:
+  ManifestIngestCmd(const std::string& name, int arity, uint32_t flag)
+    : Cmd(name, arity, flag, static_cast<uint32_t>(AclCategory::STRING)) {}
+  ~ManifestIngestCmd() { sst_files_path_.clear();}
+
+  std::vector<std::string> current_key() const override {
+    return std::vector<std::string>{key_};
+  }
+
+  void Do() override;
+  void DoThroughDB() override;
+  void Split(const HintKeys&) override {}
+  void Merge() override {}
+  bool IsTooLargeKey(const size_t& max_sz) override {
+    return key_.size() > max_sz;
+  }
+
+  Cmd* Clone() override { return new ManifestIngestCmd(*this); }
+
+ private:
+  std::string key_;
+  std::string ingest_conf_path_;
+  std::vector<std::string> sst_files_path_;
+  rocksdb::Status s_;
+  void DoInitial() override;
+};
+
 
 class DelCmd : public Cmd {
  public:

@@ -142,6 +142,8 @@ int PikaConf::Load() {
   };
 
   GetConfStr("db-path", &db_path_);
+  GetConfStr("s3-conf-path", &s3_conf_path_);
+  GetConfStr("ingest-conf-path", &ingest_conf_path_);
   GetConfInt("db-instance-num", &db_instance_num_);
   if (db_instance_num_ <= 0) {
     LOG(FATAL) << "db-instance-num load error";
@@ -192,10 +194,7 @@ int PikaConf::Load() {
 
   std::string admin_cmd_list;
   GetConfStr("admin-cmd-list", &admin_cmd_list);
-  if (admin_cmd_list == "") {
-    admin_cmd_list = "info, monitor, ping";
-    SetAdminCmd(admin_cmd_list);
-  }
+  SetAdminCmd(admin_cmd_list);
 
   std::string unfinished_full_sync;
   GetConfStr("internal-used-unfinished-full-sync", &unfinished_full_sync);
@@ -369,7 +368,10 @@ int PikaConf::Load() {
   if (write_buffer_size_ <= 0) {
     write_buffer_size_ = 268435456;  // 256Mb
   }
-
+  GetConfInt64Human("proto-max-bulk-len", &proto_max_bulk_len_);
+  if (proto_max_bulk_len_ <= 0) {
+    proto_max_bulk_len_ = 512 * 1024 * 1024;  // 512MB
+  }
   GetConfInt("level0-stop-writes-trigger", &level0_stop_writes_trigger_);
   if (level0_stop_writes_trigger_ < 36) {
     level0_stop_writes_trigger_ = 36;
@@ -449,6 +451,10 @@ int PikaConf::Load() {
   GetConfStr("rate-limiter-auto-tuned", &at);
   // rate_limiter_auto_tuned_ will be true if user didn't config
   rate_limiter_auto_tuned_ = at == "yes" || at.empty();
+  // if rate limiter autotune enable, `rate_limiter_bandwidth_` will still be respected as an upper-bound.
+  if (rate_limiter_auto_tuned_) {
+    rate_limiter_bandwidth_ = 10 * 1024 * 1024 * 1024; // 10GB/s
+  }
 
   // max_write_buffer_num
   max_write_buffer_num_ = 2;

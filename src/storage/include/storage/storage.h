@@ -21,7 +21,6 @@
 #include "rocksdb/slice.h"
 #include "rocksdb/status.h"
 #include "rocksdb/table.h"
-
 #include "slot_indexer.h"
 #include "pstd/include/pstd_mutex.h"
 #include "src/base_data_value_format.h"
@@ -1089,6 +1088,8 @@ class Storage {
   Status CompactRange(const DataType& type, const std::string& start, const std::string& end, bool sync = false);
   Status DoCompactRange(const DataType& type, const std::string& start, const std::string& end);
   Status DoCompactSpecificKey(const DataType& type, const std::string& key);
+  Status SstExtendIngest(const DataType& type, const std::vector<std::string>& local_sst_paths, const std::string& key, const std::string &config_path);
+  Status DoSstExtendIngest(const DataType& type, std::vector<std::string>& local_sst_paths, const std::string& key, const std::string &config_path);
 
   /**
    * LongestNotCompactionSstCompact will execute the compact command for any cf in the given type
@@ -1150,6 +1151,9 @@ class Storage {
   // For scan keys in data base
   std::atomic<bool> scan_keynum_exit_ = {false};
   Status MGetWithTTL(const Slice& key, std::string* value, int64_t* ttl_millsec);
+  // 全局导入 session 计数器
+  std::atomic<int> ingest_sessions_{0};
+  std::mutex ingest_mu_;
 };
 
 }  //  namespace storage

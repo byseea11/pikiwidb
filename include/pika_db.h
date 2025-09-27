@@ -133,7 +133,8 @@ class DB : public std::enable_shared_from_this<DB>, public pstd::noncopyable {
   void Compact(const storage::DataType& type);
   void CompactRange(const storage::DataType& type, const std::string& start, const std::string& end);
   void LongestNotCompactionSstCompact(const storage::DataType& type);
-
+  void SstExtendIngest(const storage::DataType& type, const std::vector<std::string>& local_sst_paths,
+                       const std::string& key, const std::string &config_path);
   void SetCompactRangeOptions(const bool is_canceled);
 
   std::shared_ptr<pstd::lock::LockMgr> LockMgr();

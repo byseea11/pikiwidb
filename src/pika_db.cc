@@ -201,6 +201,15 @@ void DB::LongestNotCompactionSstCompact(const storage::DataType& type) {
   storage_->LongestNotCompactionSstCompact(type);
 }
 
+void DB::SstExtendIngest(const storage::DataType& type, const std::vector<std::string>& local_sst_paths,
+                         const std::string& key, const std::string &config_path) {
+  std::lock_guard rwl(dbs_rw_);
+  if (!opened_) {
+    return;
+  }
+  storage_->SstExtendIngest(type, local_sst_paths, key, config_path);
+}
+
 void DB::DoKeyScan(void* arg) {
   std::unique_ptr <BgTaskArg> bg_task_arg(static_cast<BgTaskArg*>(arg));
   bg_task_arg->db->RunKeyScan();

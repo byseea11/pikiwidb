@@ -7,7 +7,8 @@
 #include <algorithm>
 
 #include <glog/logging.h>
-
+#include <filesystem>
+#include "ingest/include/ingest_conf.h"
 #include "storage/util.h"
 #include "storage/storage.h"
 #include "scope_snapshot.h"
@@ -1837,6 +1838,98 @@ Status Storage::SetSmallCompactionDurationThreshold(uint32_t small_compaction_du
   }
   return Status::OK();
 }
+
+
+Status Storage::SstExtendIngest(const DataType& type,
+                                const std::vector<std::string>& local_sst_paths,
+                                const std::string& key,
+                                const std::string& config_path) {
+  if (local_sst_paths.empty()) {
+    return Status::InvalidArgument("SST path list is empty");
+  }
+
+  rocksdb::DB* db = GetDBInstance(key)->GetDB();
+  if (!db) {
+    return Status::NotFound("DB not found at key: " + key);
+  }
+  auto* cf = db->DefaultColumnFamily();
+
+  IngestConf ingest_conf(config_path);
+  ingest_conf.Load();
+
+  bool need_apply_restore = false;
+
+  // ==== 并发计数 & 激进配置 ====
+  {
+    std::lock_guard<std::mutex> lk(ingest_mu_);
+    if (ingest_sessions_.fetch_add(1) == 0) {
+      // 第一个 Ingest 开启激进配置
+      auto st = ingest_conf.ApplyAggressiveOptions(db, cf);
+      if (!st.ok()) {
+        ingest_sessions_.fetch_sub(1);
+        LOG(ERROR) << "[DB::SstExtendIngest] Failed to apply aggressive options: " << st.ToString();
+        return Status::IOError("Failed to apply aggressive options: " + st.ToString());
+      }
+      need_apply_restore = true;
+    }
+  }
+
+  // ==== 执行 Ingest ====
+  std::vector<std::string> paths = local_sst_paths;
+  auto st = DoSstExtendIngest(type, paths, key, config_path);
+
+  // ==== 恢复配置（只有最后一个才恢复） ====
+  {
+    std::lock_guard<std::mutex> lk(ingest_mu_);
+    if (need_apply_restore && ingest_sessions_.fetch_sub(1) == 1) {
+      auto rst = ingest_conf.ApplyRestoreOptions(db, cf);
+      if (!rst.ok()) {
+        LOG(ERROR) << "[DB::SstExtendIngest] Failed to apply restore options: " << rst.ToString();
+        return Status::IOError("Failed to apply restore options: " + rst.ToString());
+      }
+      int code = ingest_conf.ConfigRewrite();
+      if (code != 0) {
+        LOG(ERROR) << "[DB::SstExtendIngest] Failed to rewrite config.";
+        return Status::IOError("Failed to rewrite config.");
+      }
+    } else {
+      ingest_sessions_.fetch_sub(1);  // 普通减计数
+    }
+  }
+
+  return st;
+}
+
+Status Storage::DoSstExtendIngest(const DataType& type,
+                                  std::vector<std::string>& local_sst_paths,
+                                  const std::string& key,
+                                  const std::string& config_path) {
+  rocksdb::DB* db = GetDBInstance(key)->GetDB();
+  if (!db) {
+    return Status::NotFound("DB not found at key: " + key);
+  }
+  auto* cf = db->DefaultColumnFamily();
+
+  // 配置 IngestExternalFileOptions
+  IngestConf ingest_conf(config_path);
+  ingest_conf.Load();
+  rocksdb::IngestExternalFileOptions opt = ingest_conf.MakeIngestOptions();
+
+  // 执行 Ingest 操作
+  auto st = db->IngestExternalFile(local_sst_paths, opt);
+  if (!st.ok()) {
+    LOG(ERROR) << "[DB::DoSstExtendIngest] Ingest failed: " << st.ToString();
+    return Status::IOError("IngestExternalFile failed: " + st.ToString());
+  }
+
+  // 非阻塞触发后台压缩
+  db->SuggestCompactRange(cf, nullptr, nullptr);
+
+  LOG(INFO) << "[DB::DoSstExtendIngest] Ingested " << local_sst_paths.size() << " SST files.";
+  return Status::OK();
+}
+
+
 
 std::string Storage::GetCurrentTaskType() {
   int type = current_task_type_;

@@ -9,9 +9,14 @@ add_library(exchange_lib STATIC ${EXCHANGE_SRC})
 
 target_include_directories(exchange_lib PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${PROJECT_ROOT_DIR}
+  ${PROJECT_ROOT_DIR}/include
   ${PROJECT_ROOT_DIR}/src
   ${PROJECT_ROOT_DIR}/src/pstd
   ${PROJECT_ROOT_DIR}/src/pstd/include
+  ${PROJECT_ROOT_DIR}/src/storage
+  ${PROJECT_ROOT_DIR}/src/storage/include
+  ${ROCKSDB_SOURCE_DIR}
 )
 
 link_pikiwidb_libs(exchange_lib)

@@ -3,8 +3,8 @@
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
 
-#ifndef SRC_CODING_H_
-#define SRC_CODING_H_
+#ifndef CODING_H_
+#define CODING_H_
 
 #undef STORAGE_PLATFORM_IS_LITTLE_ENDIAN
 
@@ -83,4 +83,4 @@ inline uint64_t DecodeFixed64(const char* ptr) {
 }
 
 }  // namespace storage
-#endif  // SRC_CODING_H_
+#endif  // CODING_H_

@@ -1,7 +1,0 @@
-{
-            "endpoint": "https://s3.amazonaws.com",
-            "region": "ap-northeast-3",
-            "bucket": "pika-sst",
-            "access_key": "mock-access-key",
-            "secret_key": "mock-secret-key"
-        }

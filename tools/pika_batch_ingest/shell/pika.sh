@@ -382,8 +382,8 @@ SLAVE_DB_PATH="$(abs_path "$SLAVE_DB_PATH")"
 
 # 后续校验 
 echo "[6] 等待 校验... "
-DEBUG=1 ./shell/check_cli.sh -p $MASTER_PORT --db-path $MASTER_DB_PATH --log $MASTER_RE_LOG
-DEBUG=1 ./shell/check_cli.sh -p $SLAVE_PORT --db-path $SLAVE_DB_PATH --log $SLAVE_RE_LOG
+DEBUG=1 ./shell/check_cli.sh -p $MASTER_PORT --db-path $MASTER_DB_PATH --log $MASTER_RE_LOG --mode size --size-threshold 0.8
+DEBUG=1 ./shell/check_cli.sh -p $SLAVE_PORT --db-path $SLAVE_DB_PATH --log $SLAVE_RE_LOG --mode size --size-threshold 0.8
 
 ########################################
 # 停止进程

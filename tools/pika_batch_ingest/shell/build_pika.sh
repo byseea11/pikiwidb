@@ -40,7 +40,7 @@ if [[ ! -d "$PIKIWIDB_DIR" ]]; then
 fi
 
 pushd "$PIKIWIDB_DIR" >/dev/null
-  ./build.sh || { echo "❌ pikiwidb 构建失败"; exit 1; }
+  ./build.sh tools || { echo "❌ pikiwidb 构建失败"; exit 1; }
 popd >/dev/null
 
 echo "✅ pikiwidb 构建完成"

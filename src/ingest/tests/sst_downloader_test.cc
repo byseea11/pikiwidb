@@ -1,217 +1,268 @@
+// sst_downloader_minio_it.cc
 #include <gtest/gtest.h>
 #include <aws/core/Aws.h>
+#include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/client/ClientConfiguration.h>
+#include <aws/core/client/DefaultRetryStrategy.h>
+#include <aws/core/utils/logging/LogLevel.h>
 #include <aws/s3/S3Client.h>
-#include <aws/s3/model/GetObjectRequest.h>
+#include <aws/s3/model/CreateBucketRequest.h>
+#include <aws/s3/model/HeadBucketRequest.h>
+#include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/DeleteObjectRequest.h>
 #include <aws/transfer/TransferManager.h>
 #include <aws/core/utils/memory/stl/AWSStringStream.h>
+#include <aws/core/utils/threading/PooledThreadExecutor.h>
+
 #include <filesystem>
 #include <fstream>
-#include <unordered_map>
-#include <unordered_set>
-#include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
-#include "sst_downloader.h"  // SstDownloader（按你工程的包含路径调整）
-
-// 如果你的 Manifest protobuf 在 sst_downloader 内部定义/解析，不需要这行；
-// 若需要自行构造清单（下面用到了），请确保生成了对应的头：
-// #include "manifest.pb.h"
-
-using Aws::S3::Model::GetObjectOutcome;
-using Aws::S3::Model::GetObjectRequest;
-using Aws::S3::S3Client;
-using Aws::Client::AWSError;
-using Aws::S3::S3Errors;
+#include "manifest.pb.h"
+#include "sst_downloader.h"
 
 namespace fs = std::filesystem;
+using namespace Aws;
 
-// ============== 简易 Manifest 构造（如果 SstDownloader::ParseManifest 只接收纯文本列表，改这里） ==============
-// 若你的清单是 protobuf，请在工程里包含 manifest.pb.h，然后把这里改成真正构造 protobuf。
-static std::string BuildManifestBytes(const std::vector<std::string>& sst_paths) {
-  // 方案 A：每行一个相对路径（若你的实现支持纯文本）
-  // 方案 B：protobuf：把这里替换为 message Manifest { repeated string sst_path = 1; } 的序列化
-  std::string out;
+// ================== 你的 MinIO 配置（来自你发的 JSON） ==================
+static const char* CFG_ENDPOINT = "http://127.0.0.1:9000";
+static const char* CFG_REGION   = "ap-northeast-3";
+static const char* CFG_BUCKET   = "pika-sst";
+static const char* CFG_AK       = "minioadmin";
+static const char* CFG_SK       = "minioadmin";
+static const bool  CFG_IS_MINIO = true;          // path-style
+
+static const int    CFG_TRANSFER_THREADS = 32;
+static const size_t CFG_TRANSFER_BUF     = 8 * 1024 * 1024; // 8MiB
+
+// （这些重试参数 SDK 里无法一一逐项设置，这里只设置最大尝试次数）
+static const int CFG_RETRY_MAX_ATTEMPTS = 3;
+
+// ================== 工具函数 ==================
+static std::string RandSuffix(size_t n = 8) {
+  static const char* k = "abcdefghijklmnopqrstuvwxyz0123456789";
+  std::mt19937_64 rng{std::random_device{}()};
+  std::uniform_int_distribution<size_t> d(0, 35);
+  std::string s; s.reserve(n);
+  for (size_t i=0;i<n;++i) s.push_back(k[d(rng)]);
+  return s;
+}
+
+static std::string BuildManifestBytes(const std::vector<std::string>& sst_paths,
+                                      const std::string& version = "v1",
+                                      int64_t ts = 123456789) {
+  ManifestIngest::Manifest m;
+  m.set_version_id(version);
+  m.set_timestamp(ts);
   for (const auto& p : sst_paths) {
-    out.append(p);
-    out.push_back('\n');
+    auto* f = m.add_sst_files();
+    f->set_sst_path(p);
+    f->set_hash("deadbeef");
+    f->set_file_size(1234);
   }
+  std::string out;
+  if (!m.SerializeToString(&out)) throw std::runtime_error("SerializeToString failed");
   return out;
 }
 
-// ============== Fake S3Client：从内存字典里返回对象，或按注册的错误码报错 ==============
-class FakeS3Client : public S3Client {
- public:
-  using S3Client::S3Client;
-
-  void PutObjectBody(const std::string& key, const std::string& body) {
-    key_to_body_[key] = body;
-    error_keys_.erase(key);
-  }
-
-  void PutErrorKey(const std::string& key, S3Errors code = S3Errors::NO_SUCH_KEY,
-                   const char* msg = "no such key") {
-    error_keys_.insert(key);
-    err_code_[key] = code;
-    err_msg_[key] = msg;
-    key_to_body_.erase(key);
-  }
-
-  // --- FakeS3Client::GetObject ---
-GetObjectOutcome GetObject(const GetObjectRequest& request) const override {
-  const std::string key = request.GetKey().c_str();
-
-  if (error_keys_.count(key)) {
-    AWSError<S3Errors> err(err_code_.at(key), false);
-    err.SetMessage(err_msg_.at(key).c_str());
-    return GetObjectOutcome(err);
-  }
-
-  auto it = key_to_body_.find(key);
-  if (it == key_to_body_.end()) {
-    AWSError<S3Errors> err(S3Errors::NO_SUCH_KEY, false);
-    err.SetMessage("not found");
-    return GetObjectOutcome(err);
-  }
-
-  Aws::S3::Model::GetObjectResult result;
-  auto* stream = Aws::New<Aws::StringStream>("FakeS3GetObjectBody");
-  (*stream) << it->second;
-  result.ReplaceBody(stream); 
-  return GetObjectOutcome(std::move(result));
-}
-
-
- private:
-    std::unordered_map<std::string, std::string> key_to_body_;
-    std::unordered_set<std::string> error_keys_;
-    std::unordered_map<std::string, S3Errors> err_code_;
-    std::unordered_map<std::string, std::string> err_msg_;
-};
-
-// ============== 测试夹具：初始化/关闭 AWS SDK；每个用例创建独立 TransferManager ==============
+// ================== 集成测试夹具：真实 MinIO S3 + 你的 TransferManager ==================
 class SSTDownloaderTest : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
+    SDKOptions o;
+    o.loggingOptions.logLevel = Utils::Logging::LogLevel::Off;
+    options_ = o;
+    // 关闭 IMDS 避免阻塞
+    setenv("AWS_EC2_METADATA_DISABLED", "true", 1);
     Aws::InitAPI(options_);
   }
   static void TearDownTestSuite() {
     Aws::ShutdownAPI(options_);
   }
 
-  // --- Fixture::SetUp() ---
-    void SetUp() override {
-    fake_client_ = std::make_shared<FakeS3Client>(Aws::Client::ClientConfiguration{});
+  void SetUp() override {
+    // 1) S3 客户端配置（MinIO 推荐 path-style）
+    Client::ClientConfiguration cfg;
+    cfg.region = CFG_REGION;
+    cfg.endpointOverride = CFG_ENDPOINT;
+    cfg.scheme = Http::Scheme::HTTP;
+    cfg.verifySSL = false;
+    cfg.useDualStack = false;
+    cfg.connectTimeoutMs = 5000;
+    cfg.requestTimeoutMs = 120000;
+    cfg.maxConnections = 64;
+    cfg.retryStrategy = Aws::MakeShared<Client::DefaultRetryStrategy>("Retry", CFG_RETRY_MAX_ATTEMPTS);
 
-    executor_ = Aws::MakeShared<Aws::Utils::Threading::DefaultExecutor>("TestExec");
-    Aws::Transfer::TransferManagerConfiguration cfg(executor_.get()); 
-    cfg.s3Client = fake_client_;
-    cfg.transferBufferMaxHeapSize = 8 * 1024 * 1024;
-    xfer_mgr_ = Aws::Transfer::TransferManager::Create(cfg);
+    Aws::Auth::AWSCredentials creds(CFG_AK, CFG_SK);
 
-    bucket_ = "test-bucket";
-    manifest_prefix_ = "manifest/";
-    sst_prefix_ = "sst/";
-    fs::remove_all("data");
+    s3_ = std::make_shared<S3::S3Client>(
+      creds, cfg,
+      Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+      /*useVirtualAddressing*/ !CFG_IS_MINIO ? true : false // MinIO: false
+    );
+
+    bucket_ = CFG_BUCKET;
+
+    // 给每次运行一个唯一前缀，避免污染：manifest/<run>/、sst/<run>/
+    run_tag_ = RandSuffix();
+    manifest_prefix_ = std::string("manifest/") + run_tag_ + "/";
+    sst_prefix_      = std::string("sst/")      + run_tag_ + "/";
+
+    // 2) 确保 bucket 存在
+    {
+      S3::Model::HeadBucketRequest hbr; hbr.SetBucket(bucket_.c_str());
+      auto hbo = s3_->HeadBucket(hbr);
+      if (!hbo.IsSuccess()) {
+        S3::Model::CreateBucketRequest cbr; cbr.SetBucket(bucket_.c_str());
+        auto cbro = s3_->CreateBucket(cbr);
+        ASSERT_TRUE(cbro.IsSuccess()) << "CreateBucket failed: " << cbro.GetError().GetMessage();
+      }
     }
 
-    std::shared_ptr<Aws::Utils::Threading::Executor> executor_; 
+    // 3) TransferManager
+  auto pool = Aws::MakeShared<Aws::Utils::Threading::PooledThreadExecutor>("ExecPool", 1); // 单线程，测试更稳
+  executor_ = pool;  // 保存以延长生命周期
+  Aws::Transfer::TransferManagerConfiguration tcfg(pool.get());
+  tcfg.s3Client = s3_;
+  tcfg.bufferSize = CFG_TRANSFER_BUF;
+  tcfg.transferBufferMaxHeapSize = CFG_TRANSFER_BUF * 4;
+  xfer_mgr_ = Aws::Transfer::TransferManager::Create(tcfg);
 
+    // 清空本地 data 目录
+    fs::remove_all("data");
+  }
+
+  void TearDown() override {
+    // 清理本地
+    fs::remove_all("data");
+
+    // 删除当前 run 的对象（不删 bucket）
+    for (auto& k : uploaded_keys_) {
+      S3::Model::DeleteObjectRequest req;
+      req.SetBucket(bucket_.c_str());
+      req.SetKey(k.c_str());
+      s3_->DeleteObject(req);
+    }
+
+    xfer_mgr_.reset();
+    s3_.reset();
+  }
+
+  // ====== 测试上传工具 ======
+  void PutObjectString(const std::string& key, const std::string& payload) {
+    S3::Model::PutObjectRequest req;
+    req.SetBucket(bucket_.c_str());
+    req.SetKey(key.c_str());
+    auto body = Aws::MakeShared<Aws::StringStream>("Body");
+    (*body) << payload;
+    req.SetBody(body);
+    req.SetContentLength(static_cast<long long>(payload.size()));
+    auto out = s3_->PutObject(req);
+    ASSERT_TRUE(out.IsSuccess()) << "PutObject failed key=" << key << " err=" << out.GetError().GetMessage();
+    uploaded_keys_.push_back(key);
+  }
 
   // 便捷：注册一组 SST 与 Manifest
   void PutManifestAndSsts(const std::string& manifest_name,
                           const std::vector<std::string>& sst_paths,
                           const std::vector<std::string>& sst_bodies) {
     ASSERT_EQ(sst_paths.size(), sst_bodies.size());
+    // 上传 manifest（protobuf）
     const std::string manifest_key = manifest_prefix_ + manifest_name;
-    fake_client_->PutObjectBody(manifest_key, BuildManifestBytes(sst_paths));
+    PutObjectString(manifest_key, BuildManifestBytes(sst_paths));
+    // 上传 sst 对象（key 使用 sst_paths 的值）
     for (size_t i = 0; i < sst_paths.size(); ++i) {
-      fake_client_->PutObjectBody(sst_prefix_ + sst_paths[i], sst_bodies[i]);
+      PutObjectString(sst_paths[i], sst_bodies[i]);
     }
   }
 
 protected:
   static Aws::SDKOptions options_;
-  std::shared_ptr<FakeS3Client> fake_client_;
-  std::shared_ptr<Aws::Transfer::TransferManager> xfer_mgr_;
-  std::string bucket_;
-  std::string manifest_prefix_;
-  std::string sst_prefix_;
+  std::shared_ptr<S3::S3Client>                    s3_;
+  std::shared_ptr<Aws::Transfer::TransferManager>  xfer_mgr_;
+  std::shared_ptr<Aws::Utils::Threading::Executor> executor_;
+
+  std::string bucket_, manifest_prefix_, sst_prefix_, run_tag_;
+  std::vector<std::string> uploaded_keys_; // 用于 TearDown 清理
 };
 
 Aws::SDKOptions SSTDownloaderTest::options_;
 
-// ============== 用例 1：Manifest 正常，下载两份 SST 成功 ==============
+// ================== 用例 1：正常下载两份 SST（端到端） ==================
 TEST_F(SSTDownloaderTest, DownloadAllFiles_OK) {
   const std::string manifest_name = "job001.manifest";
-  std::vector<std::string> sst_paths = {"user/a.sst", "user/b.sst"};
-  std::vector<std::string> sst_bodies = {"AAAA", "BBBB"};
+  std::vector<std::string> sst_paths  = { sst_prefix_ + "a.sst", sst_prefix_ + "b.sst" };
+  std::vector<std::string> sst_bodies = { "AAAA", "BBBB" };
 
   PutManifestAndSsts(manifest_name, sst_paths, sst_bodies);
 
-  SstDownloader dl(fake_client_, xfer_mgr_, bucket_, manifest_prefix_, sst_prefix_);
+  SstDownloader dl(s3_, xfer_mgr_, bucket_, manifest_prefix_, ""); // sst_dict_ 为空：我们已提供完整 sst/.. key
   std::vector<std::string> out;
   auto st = dl.DownloadAllFiles(manifest_name, out);
   EXPECT_TRUE(st.ok()) << st.ToString();
   ASSERT_EQ(out.size(), sst_paths.size());
 
-  for (const auto& p : out) {
-    EXPECT_TRUE(fs::exists(p)) << "missing " << p;
-    EXPECT_NE(p.find("data/"), std::string::npos) << "path not under data/: " << p;
+  for (size_t i = 0; i < out.size(); ++i) {
+    EXPECT_TRUE(fs::exists(out[i])) << "missing " << out[i];
+    std::ifstream ifs(out[i], std::ios::binary);
+    std::string got((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(got, sst_bodies[i]);
+    EXPECT_NE(out[i].find("data/"), std::string::npos);
   }
 }
 
-// ============== 用例 2：空 Manifest（无 sst）=> OK 且结果为空 ==============
+// ================== 用例 2：空 manifest（不含任何 sst） ==================
 TEST_F(SSTDownloaderTest, EmptyManifest_OkNoFiles) {
   const std::string manifest_name = "empty.manifest";
   const std::string manifest_key = manifest_prefix_ + manifest_name;
-  fake_client_->PutObjectBody(manifest_key, BuildManifestBytes({}));
+  PutObjectString(manifest_key, BuildManifestBytes({}));
 
-  SstDownloader dl(fake_client_, xfer_mgr_, bucket_, manifest_prefix_, sst_prefix_);
+  SstDownloader dl(s3_, xfer_mgr_, bucket_, manifest_prefix_, "");
   std::vector<std::string> out;
   auto st = dl.DownloadAllFiles(manifest_name, out);
   EXPECT_TRUE(st.ok());
   EXPECT_TRUE(out.empty());
 }
 
-// ============== 用例 3：Manifest 不存在 => IOError ==============
+// ================== 用例 3：manifest 不存在 ==================
 TEST_F(SSTDownloaderTest, ManifestMissing_IOError) {
   const std::string manifest_name = "notfound.manifest";
-  const std::string manifest_key = manifest_prefix_ + manifest_name;
-  fake_client_->PutErrorKey(manifest_key, S3Errors::NO_SUCH_KEY, "missing");
+  // 不上传 manifest
 
-  SstDownloader dl(fake_client_, xfer_mgr_, bucket_, manifest_prefix_, sst_prefix_);
+  SstDownloader dl(s3_, xfer_mgr_, bucket_, manifest_prefix_, "");
   std::vector<std::string> out;
   auto st = dl.DownloadAllFiles(manifest_name, out);
   EXPECT_TRUE(st.IsIOError());
 }
 
-// ============== 用例 4：Manifest 含非法路径（.. / 绝对路径）=> Corruption ==============
+// ================== 用例 4：manifest 含非法路径（.. / 绝对路径） ==================
 TEST_F(SSTDownloaderTest, ManifestHasIllegalPath_Corruption) {
   const std::string manifest_name = "evil.manifest";
   const std::string manifest_key = manifest_prefix_ + manifest_name;
-  // 若你的实现对路径有更严格的规则（例如必须以某个前缀开头），可在这里叠加样例
-  fake_client_->PutObjectBody(manifest_key, BuildManifestBytes({"../escape.sst", "/abs/xx.sst"}));
+  // 直接写进 manifest：非法路径
+  PutObjectString(manifest_key, BuildManifestBytes({"../escape.sst", "/abs/xx.sst"}));
 
-  SstDownloader dl(fake_client_, xfer_mgr_, bucket_, manifest_prefix_, sst_prefix_);
+  SstDownloader dl(s3_, xfer_mgr_, bucket_, manifest_prefix_, "");
   std::vector<std::string> out;
   auto st = dl.DownloadAllFiles(manifest_name, out);
   EXPECT_TRUE(st.IsCorruption());
 }
 
-// ============== 用例 5：中途某个 sst 对象缺失 => IOError ==============
+// ================== 用例 5：清单列出两份，但只上传其中一份 ==================
 TEST_F(SSTDownloaderTest, OneSstMissing_IOError) {
   const std::string manifest_name = "partial.manifest";
+  const std::vector<std::string> sst_paths = { sst_prefix_ + "user/a.sst", sst_prefix_ + "user/b.sst" };
+
+  // 上传 manifest，列出两份 SST
   const std::string manifest_key = manifest_prefix_ + manifest_name;
+  PutObjectString(manifest_key, BuildManifestBytes(sst_paths));
+  // 只上传第一份
+  PutObjectString(sst_paths[0], "AAAA");
+  // 第二份故意不传
 
-  // 清单列出两份，但只提供其中一份
-  std::vector<std::string> sst_paths = {"user/a.sst", "user/b.sst"};
-  fake_client_->PutObjectBody(manifest_key, BuildManifestBytes(sst_paths));
-  fake_client_->PutObjectBody(sst_prefix_ + "user/a.sst", "AAAA");
-  // b.sst 故意不放，或注册错误
-  fake_client_->PutErrorKey(sst_prefix_ + "user/b.sst", S3Errors::NO_SUCH_KEY, "missing b");
-
-  SstDownloader dl(fake_client_, xfer_mgr_, bucket_, manifest_prefix_, sst_prefix_);
+  SstDownloader dl(s3_, xfer_mgr_, bucket_, manifest_prefix_, "");
   std::vector<std::string> out;
   auto st = dl.DownloadAllFiles(manifest_name, out);
   EXPECT_TRUE(st.IsIOError());

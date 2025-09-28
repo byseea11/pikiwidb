@@ -31,6 +31,12 @@ if(EXISTS "${DEPS_INCLUDE_DIR}")
   include_directories(${DEPS_INCLUDE_DIR})
 endif()
 
+set(EP_BASE_SUFFIX "buildtrees")
+set(STAGED_INSTALL_PREFIX ${PROJECT_ROOT_DIR}/deps)
+set(INSTALL_INCLUDEDIR ${STAGED_INSTALL_PREFIX}/include)
+set(ROCKSDB_INCLUDE_DIR ${INSTALL_INCLUDEDIR})
+set(ROCKSDB_SOURCE_DIR ${PROJECT_ROOT_DIR}/${EP_BASE_SUFFIX}/Source/rocksdb)
+
 # =========================
 # Vendor 静态库所在目录
 # =========================

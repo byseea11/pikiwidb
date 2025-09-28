@@ -18,7 +18,6 @@
     - [`s3_config.json`（S3/MinIO 与 manifest 上传）](#s3_configjsons3minio-与-manifest-上传)
     - [`iagent_threads.json`（iAgent 并发）](#iagent_threadsjsoniagent-并发)
     - [`pika.json`（Pika 连接）](#pikajsonpika-连接)
-    - [`sst_count.json`（SST 统计/校验）](#sst_countjsonsst-统计校验)
     - [`manifest.queue` / `manifest.offset`（内部状态）](#manifestqueue--manifestoffset内部状态)
   - [脚本说明](#脚本说明)
     - [环与公共配置](#环与公共配置)
@@ -30,6 +29,9 @@
     - [工具与检查](#工具与检查)
       - [`check_cli.sh`](#check_clish)
       - [`proto.sh`](#protosh)
+      - [`sst.sh`](#sst)
+      - [`check_pika.sh`](#check_pika)
+      - [`check_txt.sh`](#check_txt)
     - [数据流转](#数据流转)
       - [`mock.sh`](#mocksh)
       - [`exchange.sh`](#exchangesh)
@@ -134,10 +136,12 @@ Mock(生成数据) → Exchange(转SST) → S3Put(上传S3)
 
 ## 快速开始
 
-一键跑全流程：
-
+### 跑全流程
+一键跑全流程：建议命名为生成的数据大小。
+1. 修改config/config.json文件中的`targetSizeMB`调整生产的总数据大小以及`maxFileSizeMB`调整生成的单个文件的kv大小。
+2. 运行脚本：其中test-1M为生成的文件夹名称，文件夹会在data/下生成对应mock/，sst/，klog/等文件。
 ```bash
-./shell/run.sh kvdict
+./shell/run.sh test-1M
 ```
 
 > **重要：`run.sh` 基于 `config.json` 进行数据生成与流程编排**（例如目标规模、输出目录、引用的 `dict.json` 等）。运行前请先正确配置 **`config.json`**（见下文“配置文件”章节）。
@@ -291,20 +295,6 @@ Mock(生成数据) → Exchange(转SST) → S3Put(上传S3)
 { "host": "127.0.0.1", "port": 9221 }
 ```
 
-### `sst_count.json`（SST 统计/校验）
-
-* **用途**：记录 SST 生成/导入后的统计信息，便于与 binlog/rocksdb 进行核对。
-* **示例**：
-
-```json
-{
-  "status": "ok",
-  "total_encode_bytes": 1049979546,
-  "total_keys": 10605854,
-  "total_raw_bytes": 424234160
-}
-```
-
 ### `manifest.queue` / `manifest.offset`（内部状态）
 
 * **用途**：iAgent 的本地持久化队列与偏移量，用于**断点续传与去重**。
@@ -371,6 +361,33 @@ JOBS=16 ./shell/build.sh
 #### `proto.sh`
 
 * 编译 `.proto` 文件为 C++ 代码
+
+#### `sst.sh`
+
+* 查看并打印指定 SST 文件的 raw 内容; 若本地无 sst_dump 可执行文件，自动在 RocksDB 目录编译; 支持传入 data/sst 下的相对路径，不传则使用内置默认文件
+* 用法：
+
+```bash
+./shell/sst.sh [相对路径.sst]
+```
+
+#### `check_pika.sh`
+
+* 从 config/mock 生成的 keys 列表(JSON) 中抽取前 1000 个 key, 通过 pika_to_txt 导出 DB 到文本，再对比这些 key 是否存在
+* 用法：
+
+```bash
+./shell/check_pika.sh
+```
+
+#### `check_txt.sh`
+
+* 调用 `check_keys_in_txt.py`, 用 JSON 里的 key 列表 对比 pika_to_txt 导出的 txt，只统计同一条记录里同时出现 key_* 与 value_* 的配对，判定哪些 key 覆盖到了
+* 用法：
+
+```bash
+./shell/check_txt.sh
+```
 
 ---
 

@@ -98,6 +98,12 @@ class IngestConf : public pstd::BaseConf {
     GetConfStr("ingest.options.ingest-behind", &opt_ingest_behind_);
     if (opt_ingest_behind_.empty()) opt_ingest_behind_ = "false";
 
+    GetConfStr("ingest.options.write-global-seqno", &opt_write_global_seqno_);
+    if (opt_write_global_seqno_.empty()) opt_write_global_seqno_ = "true";
+
+    GetConfStr("ingest.options.allow-global-seqno", &opt_allow_global_seqno_);
+    if (opt_allow_global_seqno_.empty()) opt_allow_global_seqno_ = "true";
+
     return 0;
   }
 
@@ -176,6 +182,8 @@ class IngestConf : public pstd::BaseConf {
     opt.snapshot_consistency = (opt_snapshot_consistency_ == "true");
     opt.allow_blocking_flush = (opt_allow_blocking_flush_ == "true");
     opt.ingest_behind = (opt_ingest_behind_ == "true");
+    opt.write_global_seqno = (opt_write_global_seqno_ == "true"); 
+    opt.allow_global_seqno = (opt_allow_global_seqno_ == "true");
     return opt;
   }
 
@@ -327,7 +335,16 @@ class IngestConf : public pstd::BaseConf {
     TryPushDiffCommands("ingest.options.ingest-behind", value);
     opt_ingest_behind_ = value;
   }
-
+  void SetOptWriteGlobalSeqno(const std::string& value) {
+    std::lock_guard<std::shared_mutex> lk(rwlock_);
+    TryPushDiffCommands("ingest.options.write-global-seqno", value);
+    opt_write_global_seqno_ = value;
+  }
+   void SetOptAllowGlobalSeqno(const std::string& value) {
+    std::lock_guard<std::shared_mutex> lk(rwlock_);
+    TryPushDiffCommands("ingest.options.allow-global-seqno", value);
+    opt_allow_global_seqno_ = value;
+  }
   // 按 PikaConf 风格，落盘差异项
   int ConfigRewrite() {
     int err = 0;
@@ -379,6 +396,8 @@ class IngestConf : public pstd::BaseConf {
   std::string opt_snapshot_consistency_ = "true";
   std::string opt_allow_blocking_flush_ = "true";
   std::string opt_ingest_behind_ = "false";
+  std::string opt_write_global_seqno_ = "true";
+  std::string opt_allow_global_seqno_ = "true";
 };
 
 #endif  // PIKA_INGEST_CONF_H_

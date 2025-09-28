@@ -6,7 +6,7 @@
     "size": 16
   },
   "maxFileSizeMB": 1,
-  "maxSizeGB": 10,
+  "maxSizeGB": 100,
   "targetSizeMB": 1,
   "value": {
     "distribution": "normal",

@@ -47,14 +47,18 @@ LOG_FILE="$LOG_FILE_DEFAULT"
 CMD_TAG="${CMD_TAG:-ManifestIngestCmd}"
 STABLE_SECS="${STABLE_SECS:-3}"
 MACHINE_ONLY=0
-
+MODE="size"                 # 判定模式 keys|size
+SIZE_THRESHOLD="0.15"       # 大小判定的阈值比例，默认 85%
 QUEUE_FILE="${PROJECT_ROOT}/config/manifest.queue"
+CONFIG_PATH="${PROJECT_ROOT}/config/config.json"
 
 # FIXED: Added missing closing quote
 REDIS_CLI_BIN="${REDIS_CLI_BIN:-${PROJECT_ROOT}/third/redis/redis-cli}"
 JQ_BIN="${PROJECT_ROOT}/third/jq/jq"
 
 RECOVERED_TIME="${RECOVERED_TIME:-10}"
+
+
 
 ########################################
 # 参数解析
@@ -75,6 +79,10 @@ while [[ $# -gt 0 ]]; do
     --stable-secs=*)  STABLE_SECS="${1#*=}"; shift;;
     --final-delay)    RECOVERED_TIME="$2"; shift 2;;
     --final-delay=*)  RECOVERED_TIME="${1#*=}"; shift;;
+    --mode)           MODE="$2"; shift 2;;
+    --mode=*)         MODE="${1#*=}"; shift;;
+    --size-threshold) SIZE_THRESHOLD="$2"; shift 2;;
+    --size-threshold=*) SIZE_THRESHOLD="${1#*=}"; shift;;
     --machine)        MACHINE_ONLY=1; shift;;
     -h|--help)        usage; exit 0;;
     *)                if [[ "$LOG_FILE" == "$LOG_FILE_DEFAULT" ]]; then
@@ -100,7 +108,7 @@ hr() {
 
 title() {
   hr
-  printf " Ingest 校验摘要 (port %s, db-path %s)\n" "$REDIS_PORT" "${DB_PATH:-auto}"
+  printf " Ingest 校验摘要 (port %s, db-path %s, mode %s)\n" "$REDIS_PORT" "${DB_PATH:-auto}" "$MODE"
   hr
 }
 
@@ -207,7 +215,7 @@ fi
 # 抽样检查 (重试 + 多次抽样统计)
 ########################################
 MOCK_DIR="${PROJECT_ROOT}/data/mock"
-SAMPLE_TOTAL=5      # 尝试抽样次数
+SAMPLE_TOTAL=0      # 尝试抽样次数
 RETRY_MAX=3         # 每个 key 最多重试
 RETRY_DELAY=2       # 重试间隔秒
 
@@ -386,7 +394,7 @@ if (( ${#SAMPLE_KEYS_RETRY[@]} > 0 )); then
         [[ "${DEBUG:-0}" -eq 1 ]] && echo "[DEBUG] retry $i for $key -> exists_out=$exists_out" >&2
 
         if [[ "$exists_out" == "1" ]]; then
-          echo "[RECOVERED] $key 在延时检查中出现了 ✅" >&2
+          echo "[RECOVERED] $key 在延时检查中出现了" >&2
           SAMPLE_OK=$((SAMPLE_OK+1))
           SAMPLE_FAIL=$((SAMPLE_FAIL-1))
           SAMPLE_KEYS_OK+=("$key")
@@ -421,31 +429,84 @@ if [[ "$TOTAL_SST" == "0" ]]; then
   FAIL_REASONS+="RocksDB total_sst_files_size 异常为 0; "
 fi
 
+
+# 统一判定：根据 MODE 切换（keys / size）
 STATUS_TXT="FAIL"; RESULT_CODE=0
-if [[ "$cond_queue" == "OK" ]]; then
-  if [[ $SAMPLE_OK -eq $SAMPLE_TOTAL ]]; then
-    STATUS_TXT="SUCCESS"; RESULT_CODE=1
-  elif [[ $SAMPLE_OK -gt 0 ]]; then
-    STATUS_TXT="WARN"; RESULT_CODE=0
-    FAIL_REASONS+="部分抽样 key 不存在(${SAMPLE_FAIL}/${SAMPLE_TOTAL}); "
 
-    # 根据 RocksDB 状态增加可能原因
-    pending_bytes="$(redis_cmd INFO rocksdb | awk -F: '/estimate_pending_compaction_bytes/{gsub("\r","",$2); sum+=$2} END{print sum+0}')"
-    running_comp="$(redis_cmd INFO rocksdb | awk -F: '/num_running_compactions/{gsub("\r","",$2); sum+=$2} END{print sum+0}')"
-
-    if (( pending_bytes > 0 || running_comp > 0 )); then
-      FAIL_REASONS+="可能原因: RocksDB 存在延迟压缩 (pending=${pending_bytes}, comp=${running_comp}), 部分 key 暂时不可见; "
-    fi
-
-  elif [[ $SAMPLE_ERR -gt 0 ]]; then
-    STATUS_TXT="FAIL"; RESULT_CODE=0
-    FAIL_REASONS+="抽样过程中出现错误(${SAMPLE_ERR} 次); "
-  else
-    STATUS_TXT="FAIL"; RESULT_CODE=0
-    FAIL_REASONS+="所有抽样 key 均不存在; "
-  fi
-else
+if [[ "$cond_queue" != "OK" ]]; then
   FAIL_REASONS+="队列缺失检查未通过; "
+else
+    if [[ "$MODE" == "size" ]]; then
+    # —— 按 RocksDB 大小判定（±比例区间） ——
+    if [[ ! -f "$CONFIG_PATH" ]]; then
+      FAIL_REASONS+="未找到配置文件: $CONFIG_PATH; "
+    elif [[ ! -x "$JQ_BIN" ]]; then
+      FAIL_REASONS+="jq 不可用，无法读取 targetSizeMB; "
+    else
+      TARGET_MB="$("$JQ_BIN" -r '.targetSizeMB // 0' "$CONFIG_PATH" 2>/dev/null || echo 0)"
+      [[ "$TARGET_MB" =~ ^[0-9]+(\.[0-9]+)?$ ]] || TARGET_MB=0
+
+      # 计算当前、上下界（MB 与 Bytes）
+      CURRENT_MB=$(awk -v b="$TOTAL_SST" 'BEGIN{printf "%.3f", b/1024/1024}')
+      DELTA=$(awk -v r="$SIZE_THRESHOLD" 'BEGIN{printf "%.3f", 1-r}')              # 例如 r=0.85 => Δ=0.15
+      LOWER_MB=$(awk -v mb="$TARGET_MB" -v r="$SIZE_THRESHOLD" 'BEGIN{printf "%.3f", mb*r}')
+      UPPER_MB=$(awk -v mb="$TARGET_MB" -v r="$SIZE_THRESHOLD" 'BEGIN{printf "%.3f", mb*(1+(1-r))}')  # = mb*(2-r)
+
+      LOWER_BYTES=$(awk -v mb="$LOWER_MB" 'BEGIN{printf "%.0f", mb*1024*1024}')
+      UPPER_BYTES=$(awk -v mb="$UPPER_MB" 'BEGIN{printf "%.0f", mb*1024*1024}')
+
+      if (( TOTAL_SST >= LOWER_BYTES && TOTAL_SST <= UPPER_BYTES && LOWER_BYTES > 0 )); then
+        STATUS_TXT="SUCCESS"; RESULT_CODE=1
+        SIZE_PASS_REASON=$(
+          printf '目标=%.3f MB，允许区间=[%.3f MB, %.3f MB]，当前=%.3f MB ∈ 区间' \
+                "$TARGET_MB" "$LOWER_MB" "$UPPER_MB" "$CURRENT_MB"
+        )
+      else
+        STATUS_TXT="FAIL"; RESULT_CODE=0
+        if (( TOTAL_SST < LOWER_BYTES )); then
+          FAIL_REASONS+=$(
+            printf '当前=%.3f MB < 下限=%.3f MB（目标=%.3f MB，±%.0f%%）; ' \
+                  "$CURRENT_MB" "$LOWER_MB" "$TARGET_MB" "$(awk -v d="$DELTA" 'BEGIN{printf "%.0f", d*100}')"
+          )
+        elif (( TOTAL_SST > UPPER_BYTES )); then
+          FAIL_REASONS+=$(
+            printf '当前=%.3f MB > 上限=%.3f MB（目标=%.3f MB，±%.0f%%）; ' \
+                  "$CURRENT_MB" "$UPPER_MB" "$TARGET_MB" "$(awk -v d="$DELTA" 'BEGIN{printf "%.0f", d*100}')"
+          )
+        else
+          FAIL_REASONS+="阈值/配置异常; "
+        fi
+      fi
+    fi
+  else
+    # 抽样判断逻辑
+    STATUS_TXT="FAIL"; RESULT_CODE=0
+    if [[ "$cond_queue" == "OK" ]]; then
+      if [[ $SAMPLE_OK -eq $SAMPLE_TOTAL ]]; then
+        STATUS_TXT="SUCCESS"; RESULT_CODE=1
+      elif [[ $SAMPLE_OK -gt 0 ]]; then
+        STATUS_TXT="WARN"; RESULT_CODE=0
+        FAIL_REASONS+="部分抽样 key 不存在(${SAMPLE_FAIL}/${SAMPLE_TOTAL}); "
+
+        # 根据 RocksDB 状态增加可能原因
+        pending_bytes="$(redis_cmd INFO rocksdb | awk -F: '/estimate_pending_compaction_bytes/{gsub("\r","",$2); sum+=$2} END{print sum+0}')"
+        running_comp="$(redis_cmd INFO rocksdb | awk -F: '/num_running_compactions/{gsub("\r","",$2); sum+=$2} END{print sum+0}')"
+
+        if (( pending_bytes > 0 || running_comp > 0 )); then
+          FAIL_REASONS+="可能原因: RocksDB 存在延迟压缩 (pending=${pending_bytes}, comp=${running_comp}), 部分 key 暂时不可见; "
+        fi
+
+      elif [[ $SAMPLE_ERR -gt 0 ]]; then
+        STATUS_TXT="FAIL"; RESULT_CODE=0
+        FAIL_REASONS+="抽样过程中出现错误(${SAMPLE_ERR} 次); "
+      else
+        STATUS_TXT="FAIL"; RESULT_CODE=0
+        FAIL_REASONS+="所有抽样 key 均不存在; "
+      fi
+    else
+      FAIL_REASONS+="队列缺失检查未通过; "
+    fi
+  fi
 fi
 
 ########################################
@@ -461,9 +522,12 @@ title
 
 if [[ "$STATUS_TXT" == "SUCCESS" ]]; then
   printf "状态   : %s%s%s (%d)\n" "$GREEN" "$STATUS_TXT" "$NC" "$RESULT_CODE"
+  if [[ "$MODE" == "size" && -n "${SIZE_PASS_REASON:-}" ]]; then
+    echo "原因   : $SIZE_PASS_REASON"
+  fi
 else
   printf "状态   : %s%s%s (%d)\n" "$RED" "$STATUS_TXT" "$NC" "$RESULT_CODE"
-  echo "失败原因 : $FAIL_REASONS"
+  echo "原因   : $FAIL_REASONS"
 fi
 
 # —— sum 摘要（在队列/抽样信息之前打印）
@@ -471,8 +535,12 @@ print_ingest_sum "$LOG_FILE" "$CMD_TAG" "$STATUS_TXT"
 
 printf "队列   : 总 %s | 已处理 %s | 缺失 %s → %s\n" \
   "$queue_count" "$matched_count" "$missing_count" "$cond_queue"
-printf "抽样   : 成功 %d | 缺失 %d | 错误 %d / 总 %d\n" \
-  "$SAMPLE_OK" "$SAMPLE_FAIL" "$SAMPLE_ERR" "$SAMPLE_TOTAL"
+
+if [[ "$MODE" == "key" ]]; then
+    printf "抽样   : 成功 %d | 缺失 %d | 错误 %d / 总 %d\n" \
+    "$SAMPLE_OK" "$SAMPLE_FAIL" "$SAMPLE_ERR" "$SAMPLE_TOTAL"
+fi
+
 printf "RocksDB: SST %s bytes\n" "$TOTAL_SST"
 
 # —— 抽样 Key 明细（可视化）

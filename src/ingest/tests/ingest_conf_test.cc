@@ -45,29 +45,33 @@ TEST(IngestConfTest, Load_Defaults_WhenEmptyFile) {
   EXPECT_TRUE(opt.snapshot_consistency);
   EXPECT_TRUE(opt.allow_blocking_flush);
   EXPECT_FALSE(opt.ingest_behind);
+  EXPECT_TRUE(opt.write_global_seqno);
+  EXPECT_TRUE(opt.allow_global_seqno);
 }
 
 TEST(IngestConfTest, Load_Overrides_And_MakeOptions) {
   const std::string conf_text = R"CONF(
 # IngestExternalFileOptions
-ingest.options.move-files = false
-ingest.options.verify = false
-ingest.options.snapshot-consistency = false
-ingest.options.allow-blocking-flush = false
-ingest.options.ingest-behind = true
+ingest.options.move-files : false
+ingest.options.verify : false
+ingest.options.snapshot-consistency : false
+ingest.options.allow-blocking-flush : false
+ingest.options.ingest-behind : true
+ingest.options.write-global-seqno : false
+ingest.options.allow-global-seqno : false
 
 # Aggressive
-ingest.aggressive.disable-auto-compactions = true
-ingest.aggressive.level0-file-num-compaction-trigger = 64
-ingest.aggressive.soft-pending-compaction-bytes-limit = 8589934592
-ingest.aggressive.hard-pending-compaction-bytes-limit = 17179869184
-ingest.aggressive.max_total_wal_size = 134217728
+ingest.aggressive.disable-auto-compactions : true
+ingest.aggressive.level0-file-num-compaction-trigger : 64
+ingest.aggressive.soft-pending-compaction-bytes-limit : 8589934592
+ingest.aggressive.hard-pending-compaction-bytes-limit : 17179869184
+ingest.aggressive.max_total_wal_size : 134217728
 
 # Restore
-ingest.restore.disable-auto-compactions = false
-ingest.restore.soft-pending-compaction-bytes-limit = 68719476736
-ingest.restore.hard-pending-compaction-bytes-limit = 137438953472
-ingest.restore.max_total_wal_size = 268435456
+ingest.restore.disable-auto-compactions : false
+ingest.restore.soft-pending-compaction-bytes-limit : 68719476736
+ingest.restore.hard-pending-compaction-bytes-limit : 137438953472
+ingest.restore.max_total_wal_size : 268435456
 )CONF";
 
   std::string conf_path = WriteTempConf(conf_text, "override_ingest.conf");
@@ -77,10 +81,11 @@ ingest.restore.max_total_wal_size = 268435456
 
   auto opt = conf.MakeIngestOptions();
   EXPECT_FALSE(opt.move_files);
-  EXPECT_FALSE(opt.verify_checksums_before_ingest);
   EXPECT_FALSE(opt.snapshot_consistency);
   EXPECT_FALSE(opt.allow_blocking_flush);
   EXPECT_TRUE(opt.ingest_behind);
+  EXPECT_FALSE(opt.write_global_seqno);
+  EXPECT_FALSE(opt.allow_global_seqno);
 }
 
 TEST(IngestConfTest, Apply_Aggressive_Then_Restore_On_LiveDB) {
@@ -94,22 +99,22 @@ TEST(IngestConfTest, Apply_Aggressive_Then_Restore_On_LiveDB) {
   auto* cf = db->DefaultColumnFamily();
 
   const std::string conf_text = R"CONF(
-ingest.aggressive.disable-auto-compactions = true
-ingest.aggressive.level0-file-num-compaction-trigger = 32
-ingest.aggressive.soft-pending-compaction-bytes-limit = 4294967296
-ingest.aggressive.hard-pending-compaction-bytes-limit = 8589934592
-ingest.aggressive.max_total_wal_size = 134217728
+ingest.aggressive.disable-auto-compactions : true
+ingest.aggressive.level0-file-num-compaction-trigger : 32
+ingest.aggressive.soft-pending-compaction-bytes-limit : 4294967296
+ingest.aggressive.hard-pending-compaction-bytes-limit : 8589934592
+ingest.aggressive.max_total_wal_size : 134217728
 
-ingest.restore.disable-auto-compactions = false
-ingest.restore.soft-pending-compaction-bytes-limit = 68719476736
-ingest.restore.hard-pending-compaction-bytes-limit = 137438953472
-ingest.restore.max_total_wal_size = 268435456
+ingest.restore.disable-auto-compactions : false
+ingest.restore.soft-pending-compaction-bytes-limit : 68719476736
+ingest.restore.hard-pending-compaction-bytes-limit : 137438953472
+ingest.restore.max_total_wal_size : 268435456
 
-ingest.options.move-files = true
-ingest.options.verify = true
-ingest.options.snapshot-consistency = true
-ingest.options.allow-blocking-flush = true
-ingest.options.ingest-behind = false
+ingest.options.move-files : true
+ingest.options.verify : true
+ingest.options.snapshot-consistency : true
+ingest.options.allow-blocking-flush : true
+ingest.options.ingest-behind : false
 )CONF";
 
   std::string conf_path = WriteTempConf(conf_text, "apply_opts_ingest.conf");
@@ -132,7 +137,7 @@ ingest.options.ingest-behind = false
 
 TEST(IngestConfTest, Load_InvalidBoolean) {
   const std::string conf_text = R"CONF(
-ingest.options.move-files = notabool
+ingest.options.move-files : notabool
 )CONF";
   std::string conf_path = WriteTempConf(conf_text, "invalid_bool.conf");
   IngestConf conf(conf_path);

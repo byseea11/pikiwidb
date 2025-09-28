@@ -5,12 +5,12 @@
 #include <iostream>
 #include "utils/klog.h"
 #include <ThreadPool.h>
-#include "base_key_format.h"
+#include "storage/src/base_key_format.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "rocksdb/table.h"
 #include "rocksdb/file_checksum.h"
-#include "strings_value_format.h"
+#include "storage/src/strings_value_format.h"
 
 namespace exchange
 {
@@ -94,6 +94,7 @@ namespace exchange
         {
             return Result(Result::Ret::kFileWriteError, "Failed to open SST file: " + status.ToString());
         }
+        
 
         // 先按 ComparePair 排序
         std::sort(data.begin(), data.end(), ComparePair());
@@ -119,20 +120,18 @@ namespace exchange
         // 写入去重后的数据
         for (const auto &entry : deduped)
         {
-            s3put::BaseKey bkKey(rocksdb::Slice(entry.key));
-            s3put::StringsValue strings_value(entry.value);
-             if (entry.timestamp > 0) {
-                strings_value.SetRelativeTimeInMillsec(entry.timestamp);
-            }
+            storage::BaseKey bkKey(rocksdb::Slice(entry.key));
+            storage::StringsValue strings_value(entry.value);
+            //  if (entry.timestamp > 0) {
+            //     strings_value.SetRelativeTimeInMillsec(entry.timestamp);
+            // }
             auto encodedKey = bkKey.Encode();
             auto encodedVal = strings_value.Encode();
-
+            
             status = writer.Put(encodedKey, encodedVal);
             kvCount++;
-            totalRawBytes  += bkKey.raw_size();
-            totalRawBytes += strings_value.raw_size();
-            totalEncodeBytes  += bkKey.encoded_size();
-            totalEncodeBytes += strings_value.encoded_size();
+            totalRawBytes  += entry.key.size();
+            totalRawBytes += entry.value.size();
 
             if (!status.ok())
             {

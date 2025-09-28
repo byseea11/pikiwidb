@@ -35,6 +35,8 @@ public:
     opt.snapshot_consistency = true;
     opt.allow_blocking_flush = true;
     opt.ingest_behind = false;
+    opt.write_global_seqno = true;
+    opt.allow_global_seqno = true;
     return opt;
   }
 

@@ -74,3 +74,5 @@ deps
 !codis/cmd/fe/assets/**
 
 tests/tmp
+
+git.sh

@@ -30,7 +30,7 @@ COMPACTION_WAIT_TIMEOUT=0
 COMPACTION_QUIET_TIME=3  
 
 # 日志稳定性检测参数（秒）：连续这个时间内日志大小无变化视为稳定
-LOG_STABLE_QUIET_TIME=3  
+LOG_STABLE_QUIET_TIME=5
 
 # 主节点服务端口（pika master 的监听端口）
 MASTER_PORT=9221  

@@ -501,19 +501,22 @@ JOBS=16 ./shell/build.sh
 ## 性能测试
 
 ### 测试
-| 数据量  | pika完成时间(s) | 脚本完成时间(s) 
-| ---- | ------- | ---------------- | 
-| 1G   |         |                  |  
-| 10G  |         |                  |  
-| 20G  |         |                  |  
-| 50G  |         |                  |   
-| 80G  |         |                  |   
-| 100G |         |                  | 
+| **(KV) 数据量** | **主节点完成时间** | **从节点完成时间** |
+| ------------ | ----------- | ----------- |
+| 500M         | 0.525 s     | 0.813 s      |
+| 1G           | 1.026 s     | 1.972 s     |
+| 5G           | 5.316 s     | 6.633 s     |
+| 10G          | 8.807 s     | 15.367 s    |
+| 25G          | 14.659 s    | 22.740 s    |
+| 50G          | 20.101 s    | 25.960 s    |
+| 80G          | 31.074 s    | 44.912 s    |
+| 100G         | 47.585 s    | 61.350 s    |
+
 
 
 ### 输出格式
 ```log
-Log Message
+Log Message(100G)
 [@MOCK][TIME] Starting  at Fri Sep 26 13:32:51 2025
 [@MOCK][TIME] completed in 17849846 ms.
 [@EXCHANGE][TIME] Starting  at Fri Sep 26 18:30:21 2025
@@ -524,24 +527,64 @@ Log Message
 [@IAGENT][TIME] completed in 166 ms.
 
 ==========================================================================
- Ingest 校验摘要 (port 9221, db-path /data/ospp/pikiwidb/db/master)
+ Ingest 校验摘要 (port 9221, db-path /data/ospp/pikiwidb/db/master, mode key)
 ==========================================================================
 状态   : SUCCESS (1)
 命令   : ManifestIngestCmd
-开始   : 2025-09-27 09:36:44.572
-结束   : 2025-09-27 09:37:43.704
-耗时   : 59132 ms (59.132 s)
-备注   : [ManifestIngestCmd] Do (SST Ingest) completed, key=manifest_1758916683716449000_part406.proto
-队列   : 总 410 | 已处理 410 | 缺失 0 → OK
+开始   : 2025-09-29 16:29:02.140
+结束   : 2025-09-29 16:29:49.725
+耗时   : 47585 ms (47.585 s)
+备注   : [ManifestIngestCmd] Do (SST Ingest) completed, key=manifest_1759162959822905000_part8.proto
+队列   : 总 11 | 已处理 11 | 缺失 0 → OK
 抽样   : 成功 5 | 缺失 0 | 错误 0 / 总 5
-RocksDB: SST 38506101394 bytes
+RocksDB: SST 28239483601 bytes
 OK Keys:
-  - key_370103300725
-  - key_001000001000
-  - key_001022110100
-  - key_226203885021
-  - key_482802936941
+  - key_000001001020
+  - key_338281927233
+  - key_001010001010
+  - key_001000000111
+  - key_002100100000
 ==========================================================================
+[DEBUG] found key=key_010010001100 at first check
+[DEBUG] found key=key_001002000010 at first check
+[DEBUG] found key=key_000001100000 at first check
+[DEBUG] found key=key_449582958230 at first check
+[DEBUG] found key=key_185275774126 at first check
+[DEBUG] SAMPLE_KEYS_RETRY 数量=0
+==========================================================================
+ Ingest 校验摘要 (port 9231, db-path /data/ospp/pikiwidb/db/slave, mode key)
+==========================================================================
+状态   : SUCCESS (1)
+命令   : ManifestIngestCmd
+开始   : 2025-09-29 16:29:13.582
+结束   : 2025-09-29 16:30:14.933
+耗时   : 61350 ms (61.350 s)
+备注   : [ManifestIngestCmd] Do (SST Ingest) completed, key=manifest_1759162959822905000_part8.proto
+队列   : 总 11 | 已处理 11 | 缺失 0 → OK
+抽样   : 成功 5 | 缺失 0 | 错误 0 / 总 5
+RocksDB: SST 29796015037 bytes
+OK Keys:
+  - key_010010001100
+  - key_001002000010
+  - key_000001100000
+  - key_449582958230
+  - key_185275774126
+==========================================================================
+```
+
+以1M数据导入，确定已经完全导入
+```
+[OK] key=key_999816719712 value=value_130861221081121606
+[DEBUG] key=key_999895268297, expect=value_103123147136138176
+[OK] key=key_999895268297 value=value_103123147136138176
+[DEBUG] key=key_999914111311, expect=value_138110112116759311
+[OK] key=key_999914111311 value=value_138110112116759311
+[DEBUG] key=key_999974102103, expect=value_145941274210497646
+[OK] key=key_999974102103 value=value_145941274210497646
+[DEBUG] key=key_999997569610, expect=value_521164892868965911
+[OK] key=key_999997569610 value=value_521164892868965911
+==========================================
+Total=26214 OK=26214 FAIL=0
 ```
 
 ---

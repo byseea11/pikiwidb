@@ -79,42 +79,42 @@ PipelinedBurst::Conn *PipelinedBurst::pickConnForAppend_() {
 }
 
 // 有连接时间版本，若需要保持连接时间可以使用这个
-// bool PipelinedBurst::appendOne_(Conn &c, const BurstItem &item) {
-//   // 二进制安全（即便 payload 中包含空字符）
-//   int rc = redisAppendCommand(c.ctx, "MANIFESTINGEST %b", item.payload.data(),
-//                               (size_t)item.payload.size());
-//   if (rc != REDIS_OK) {
-//     return false;
-//   }
-
-//   // 尝试非阻塞 flush 一下，降低 obuf 积压（不强求写空）
-//   const int fd = c.ctx->fd;
-//   if (fd > 0) {
-//     struct pollfd wfd {};
-//     wfd.fd = fd;
-//     wfd.events = POLLOUT;
-//     if (poll(&wfd, 1, 0) > 0 && (wfd.revents & POLLOUT)) {
-//       int done = 0;
-//       (void)redisBufferWrite(c.ctx, &done);  // 清空缓冲区
-//     }
-//   }
-
-//   c.inflight += 1;
-//   c.tags.emplace_back(item.tag);
-//   LOG_INFO("[PipelinedBurst] Send success: tag=" + item.tag);
-//   return true;
-// }
-
-
 bool PipelinedBurst::appendOne_(Conn &c, const BurstItem &item) {
-    int rc = redisAppendCommand(c.ctx, "MANIFESTINGEST %b",
-                                item.payload.data(), item.payload.size());
-    if (rc != REDIS_OK) return false;
-    int done = 0;
-    redisBufferWrite(c.ctx, &done);
-    LOG_INFO("[PipelinedBurst] Fire-and-forget send: tag=" + item.tag);
-    return true;
+  // 二进制安全（即便 payload 中包含空字符）
+  int rc = redisAppendCommand(c.ctx, "MANIFESTINGEST %b", item.payload.data(),
+                              (size_t)item.payload.size());
+  if (rc != REDIS_OK) {
+    return false;
+  }
+
+  // 尝试非阻塞 flush 一下，降低 obuf 积压（不强求写空）
+  const int fd = c.ctx->fd;
+  if (fd > 0) {
+    struct pollfd wfd {};
+    wfd.fd = fd;
+    wfd.events = POLLOUT;
+    if (poll(&wfd, 1, 0) > 0 && (wfd.revents & POLLOUT)) {
+      int done = 0;
+      (void)redisBufferWrite(c.ctx, &done);  // 清空缓冲区
+    }
+  }
+
+  c.inflight += 1;
+  c.tags.emplace_back(item.tag);
+  LOG_INFO("[PipelinedBurst] Send success: tag=" + item.tag);
+  return true;
 }
+
+
+// bool PipelinedBurst::appendOne_(Conn &c, const BurstItem &item) {
+//     int rc = redisAppendCommand(c.ctx, "MANIFESTINGEST %b",
+//                                 item.payload.data(), item.payload.size());
+//     if (rc != REDIS_OK) return false;
+//     int done = 0;
+//     redisBufferWrite(c.ctx, &done);
+//     LOG_INFO("[PipelinedBurst] Fire-and-forget send: tag=" + item.tag);
+//     return true;
+// }
 
 
 bool PipelinedBurst::append(const BurstItem &item) {

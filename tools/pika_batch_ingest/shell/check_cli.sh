@@ -213,8 +213,8 @@ fi
 ########################################
 MOCK_DIR="${PROJECT_ROOT}/data/mock"
 SAMPLE_TOTAL=5      # 尝试抽样次数
-RETRY_MAX=3         # 每个 key 最多重试
-RETRY_DELAY=2       # 重试间隔秒
+RETRY_MAX=0         # 每个 key 最多重试
+RETRY_DELAY=0       # 重试间隔秒
 
 # 统计与明细
 SAMPLE_OK=0; SAMPLE_FAIL=0; SAMPLE_ERR=0
@@ -327,51 +327,51 @@ rocksdb_metric_sum() {
 }
 
 wait_for_rocksdb_stable() {
-  local retries="${STABLE_RETRIES:-10}"     # 默认重试 10 次
-  local delay="${STABLE_DELAY:-3}"          # 默认间隔 3 秒
-  local threshold="${PENDING_THRESHOLD:-0}" # 默认 pending 必须为 0
-  local stable_count=0 prev_sst=0
+  # local retries="${STABLE_RETRIES:-10}"     # 默认重试 10 次
+  # local delay="${STABLE_DELAY:-3}"          # 默认间隔 3 秒
+  # local threshold="${PENDING_THRESHOLD:-0}" # 默认 pending 必须为 0
+  # local stable_count=0 prev_sst=0
 
-  local start_time end_time elapsed
+  # local start_time end_time elapsed
 
-  start_time=$(date +%s)
+  # start_time=$(date +%s)
 
-  for ((i=1; i<=retries; i++)); do
-    flush="$(rocksdb_metric_sum '_mem_table_flush_pending')"
-    comp="$(rocksdb_metric_sum '_num_running_compactions')"
-    sst="$(rocksdb_metric_sum '_total_sst_files_size')"
-    pending="$(rocksdb_metric_sum '_estimate_pending_compaction_bytes')"
+  # for ((i=1; i<=retries; i++)); do
+  #   flush="$(rocksdb_metric_sum '_mem_table_flush_pending')"
+  #   comp="$(rocksdb_metric_sum '_num_running_compactions')"
+  #   sst="$(rocksdb_metric_sum '_total_sst_files_size')"
+  #   pending="$(rocksdb_metric_sum '_estimate_pending_compaction_bytes')"
 
-    # 条件统计
-    ok_count=0
-    total_count=4
-    (( flush==0 )) && ((ok_count++))
-    (( comp==0 )) && ((ok_count++))
-    (( pending<=threshold )) && ((ok_count++))
-    (( sst==prev_sst && sst>0 )) && ((ok_count++))
+  #   # 条件统计
+  #   ok_count=0
+  #   total_count=4
+  #   (( flush==0 )) && ((ok_count++))
+  #   (( comp==0 )) && ((ok_count++))
+  #   (( pending<=threshold )) && ((ok_count++))
+  #   (( sst==prev_sst && sst>0 )) && ((ok_count++))
 
-    [[ "${DEBUG:-0}" -eq 1 ]] && \
-      echo "[DEBUG] [Check#$i] flush=$flush (ok? $((flush==0))) | comp=$comp (ok? $((comp==0))) | pending=$pending<=${threshold} (ok? $((pending<=threshold))) | sst=$sst prev=$prev_sst (ok? $((sst==prev_sst && sst>0))) | stable_count=$stable_count | 条件满足=$ok_count/$total_count"
+  #   [[ "${DEBUG:-0}" -eq 1 ]] && \
+  #     echo "[DEBUG] [Check#$i] flush=$flush (ok? $((flush==0))) | comp=$comp (ok? $((comp==0))) | pending=$pending<=${threshold} (ok? $((pending<=threshold))) | sst=$sst prev=$prev_sst (ok? $((sst==prev_sst && sst>0))) | stable_count=$stable_count | 条件满足=$ok_count/$total_count"
 
-    if (( flush==0 && comp==0 && pending<=threshold && sst==prev_sst && sst>0 )); then
-      ((stable_count++))
-      if (( stable_count >= 2 )); then
-        end_time=$(date +%s)
-        elapsed=$(( end_time - start_time ))
-        echo "[INFO] RocksDB 状态稳定 (pending=$pending ≤ threshold=$threshold)，耗时 ${elapsed}s"
-        return 0
-      fi
-    else
-      stable_count=0
-    fi
+  #   if (( flush==0 && comp==0 && pending<=threshold && sst==prev_sst && sst>0 )); then
+  #     ((stable_count++))
+  #     if (( stable_count >= 2 )); then
+  #       end_time=$(date +%s)
+  #       elapsed=$(( end_time - start_time ))
+  #       echo "[INFO] RocksDB 状态稳定 (pending=$pending ≤ threshold=$threshold)，耗时 ${elapsed}s"
+  #       return 0
+  #     fi
+  #   else
+  #     stable_count=0
+  #   fi
 
-    prev_sst=$sst
-    sleep "$delay"
-  done
+  #   prev_sst=$sst
+  #   sleep "$delay"
+  # done
 
-  end_time=$(date +%s)
-  elapsed=$(( end_time - start_time ))
-  echo "[WARN] RocksDB 在 ${retries} 次检查后仍未稳定 (pending=$pending threshold=$threshold)，总耗时 ${elapsed}s"
+  # end_time=$(date +%s)
+  # elapsed=$(( end_time - start_time ))
+  # echo "[WARN] RocksDB 在 ${retries} 次检查后仍未稳定 (pending=$pending threshold=$threshold)，总耗时 ${elapsed}s"
   return 1
 }
 

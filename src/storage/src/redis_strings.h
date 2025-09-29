@@ -11,6 +11,8 @@
 #include <vector>
 #include "src/redis.h"
 
+class IngestConf;
+
 namespace storage {
 
 class RedisStrings : public Redis {
@@ -53,7 +55,10 @@ class RedisStrings : public Redis {
   Status Setrange(const Slice& key, int64_t start_offset, const Slice& value, int32_t* ret);
   Status Strlen(const Slice& key, int32_t* len);
   Status SstExtendIngest(const std::vector<std::string>& local_sst_paths, const std::string &config_path);
-  Status DoSstExtendIngest(std::vector<std::string>& local_sst_paths, const std::string &config_path);
+  Status DoSstExtendIngest(std::vector<std::string>& local_sst_paths, const std::string& config_path) ;
+  Status ApplyAggressiveConfig(IngestConf& ingest_conf);
+  Status ApplyRestoreConfig(IngestConf& ingest_conf);
+  Status HandleError(const std::string& msg, const Status& st);
 
   Status BitPos(const Slice& key, int32_t bit, int64_t* ret);
   Status BitPos(const Slice& key, int32_t bit, int64_t start_offset, int64_t* ret);

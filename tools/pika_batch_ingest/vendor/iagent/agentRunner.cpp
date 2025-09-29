@@ -101,37 +101,37 @@ void AgentRunner::run() {
 
    
      // —— drain replies —— 
-  // auto replies = burst.drainReplies(std::chrono::milliseconds(500), true);
+    auto replies = burst.drainReplies(std::chrono::milliseconds(500), true);
 
-  //    if (!replies.empty()) {
-  //       size_t okCnt = 0, failCnt = 0;
-  //       for (auto &r : replies) {
-  //           if (r.ok) {
-  //               ++okCnt;
-  //           } else {
-  //               ++failCnt;
-  //               LOG_WARN("[Agent] fail tag=" + r.tag + " err=" + r.err);
-  //           }
-  //       }
-  //       inflight_total -= replies.size();
-  //       LOG_INFO("[Agent] drain: ok=" + std::to_string(okCnt) +
-  //                " fail=" + std::to_string(failCnt) +
-  //                " inflight=" + std::to_string(inflight_total));
-  //   } else {
-  //       std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  //   }
+     if (!replies.empty()) {
+        size_t okCnt = 0, failCnt = 0;
+        for (auto &r : replies) {
+            if (r.ok) {
+                ++okCnt;
+            } else {
+                ++failCnt;
+                LOG_WARN("[Agent] fail tag=" + r.tag + " err=" + r.err);
+            }
+        }
+        inflight_total -= replies.size();
+        // LOG_INFO("[Agent] drain: ok=" + std::to_string(okCnt) +
+        //          " fail=" + std::to_string(failCnt) +
+        //          " inflight=" + std::to_string(inflight_total));
+    } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
 
     // —— 任务完成立即退出 —— 
-    // if (!watcher_.hasPending() && inflight_total == 0) {
-    //     LOG_INFO("[Agent] All tasks completed. Exiting.");
-    //     break;
-    // }
-  
-     // 没有 drain，直接检查队列
-    if (!watcher_.hasPending()) {
+    if (!watcher_.hasPending() && inflight_total == 0) {
         LOG_INFO("[Agent] All tasks completed. Exiting.");
         break;
     }
+  
+     // 没有 drain，直接检查队列
+    // if (!watcher_.hasPending()) {
+    //     LOG_INFO("[Agent] All tasks completed. Exiting.");
+    //     break;
+    // }
   }
 
   TimeTracker::End();

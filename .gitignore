@@ -89,3 +89,11 @@ conf/pika_master.conf
 conf/pika_master.conftests/integration/pika
 tests/integration/pika
 src/redis-server
+tools/pika_batch_ingest/third/redis
+tools/pika_batch_ingest/third/ThreadPool
+
+pika.py
+sample_mock.py
+tools/pika_batch_ingest/d100
+tools/pika_batch_ingest/test.sh
+tools/pika_batch_ingest/info_rocksdb.txt

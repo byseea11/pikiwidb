@@ -5,7 +5,6 @@
 #include <iostream>
 #include "utils/klog.h"
 #include <ThreadPool.h>
-#include "storage/src/base_key_format.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "rocksdb/table.h"
@@ -120,15 +119,13 @@ namespace exchange
         // 写入去重后的数据
         for (const auto &entry : deduped)
         {
-            storage::BaseKey bkKey(rocksdb::Slice(entry.key));
             storage::StringsValue strings_value(entry.value);
             //  if (entry.timestamp > 0) {
             //     strings_value.SetRelativeTimeInMillsec(entry.timestamp);
             // }
-            auto encodedKey = bkKey.Encode();
             auto encodedVal = strings_value.Encode();
             
-            status = writer.Put(encodedKey, encodedVal);
+            status = writer.Put(rocksdb::Slice(entry.key), encodedVal);
             kvCount++;
             totalRawBytes  += entry.key.size();
             totalRawBytes += entry.value.size();

@@ -389,6 +389,16 @@ JOBS=16 ./shell/build.sh
 ./shell/check_txt.sh
 ```
 
+
+#### `check_keys.sh`
+
+* 用于校验 Pika（兼容 Redis 协议的磁盘型 NoSQL）数据正确性的自动化脚本。
+* 用法：
+
+```bash
+./shell/check_keys.sh
+```
+
 ---
 
 ### 数据流转

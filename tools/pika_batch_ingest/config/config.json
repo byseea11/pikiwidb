@@ -5,14 +5,14 @@
     "prefix": "key_",
     "size": 16
   },
-  "maxFileSizeMB": 50,
+  "maxFileSizeMB": 1,
   "maxSizeGB": 100,
-  "targetSizeMB": 102400,
+  "targetSizeMB": 1,
   "value": {
     "distribution": "normal",
     "poolSize": -1,
     "prefix": "value_",
     "size": 24
   },
-  "directory": "test-100G-50M"
+  "directory": "test-1M"
 }

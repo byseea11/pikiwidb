@@ -75,19 +75,6 @@ for bin in git cmake make; do
   need_bin "$bin"
 done
 
-# ---------- 公用路径 ----------
-OPENSSL_DIR="$PROJECT_ROOT/third/openssl"
-CURL_DIR="$PROJECT_ROOT/third/curl"
-AWS_CRT_DIR="$PROJECT_ROOT/third/aws-crt-cpp"
-AWS_SDK_DIR="$PROJECT_ROOT/third/aws-sdk-cpp"
-ROCKSDB_DIR="$PROJECT_ROOT/third/rocksdb"
-HIREDIS_DIR="$PROJECT_ROOT/third/hiredis"
-
-OPENSSL_INSTALL="$OPENSSL_DIR/install"
-CURL_INSTALL="$CURL_DIR/install"
-AWS_CRT_INSTALL="$AWS_CRT_DIR/install"
-AWS_SDK_INSTALL="$AWS_SDK_DIR/install"
-
 # ---------- 公用函数 ----------
 ensure_submodule() {
   local path="$1"
@@ -114,198 +101,20 @@ step_submodules() {
   c_ok "子模块初始化完成"
 }
 
-step_openssl() {
-  c_info "[2] 编译 OpenSSL(3.1.4)"
-  ensure_submodule "$OPENSSL_DIR" "https://github.com/openssl/openssl.git"
-  pushd "$OPENSSL_DIR" >/dev/null
-    git fetch --all --tags
-    git reset --hard        # 丢弃已跟踪改动
-    git clean -fdx          # 删除未跟踪/构建产物（解决 fuzz corpora 阻塞）
-    git checkout -f openssl-3.1.4
-
-    ./config --prefix="$OPENSSL_INSTALL" no-shared no-tests
-    make -j"$(detect_jobs)"
-    make install
-  popd >/dev/null
-  c_ok "OpenSSL 安装到：$OPENSSL_INSTALL"
+step_threadpool() {
+  c_info "[ThreadPool] 初始化/更新"
+  ensure_submodule "third/ThreadPool" "https://github.com/progschj/ThreadPool.git"
+  c_ok "ThreadPool 完成"
 }
 
-step_curl() {
-  c_info "[3] 编译 curl(8.16.0 with OpenSSL 3.1.4)"
-  ensure_submodule "$CURL_DIR" "https://github.com/curl/curl.git" 
-  pushd "$CURL_DIR" >/dev/null
-    git fetch --all || true
-    git checkout curl-8_16_0
-    rm -rf build && mkdir build && cd build
-
-    # OPENSSL 路径来自上一步
-    local OPENSSL_INC="$OPENSSL_INSTALL/include"
-    local OPENSSL_LIB64="$OPENSSL_INSTALL/lib64"
-    local OPENSSL_LIB="$OPENSSL_INSTALL/lib"
-    # 兼容不同安装布局（有的系统是 lib64，有的是 lib）
-    local SSL_LIB="${OPENSSL_LIB64}/libssl.a"
-    local CRYPTO_LIB="${OPENSSL_LIB64}/libcrypto.a"
-    if [[ ! -f "$SSL_LIB" ]]; then SSL_LIB="${OPENSSL_LIB}/libssl.a"; fi
-    if [[ ! -f "$CRYPTO_LIB" ]]; then CRYPTO_LIB="${OPENSSL_LIB}/libcrypto.a"; fi
-
-    cmake .. \
-      -DCMAKE_INSTALL_PREFIX="$CURL_INSTALL" \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_USE_OPENSSL=ON \
-      -DOPENSSL_INCLUDE_DIR="$OPENSSL_INC" \
-      -DOPENSSL_SSL_LIBRARY="$SSL_LIB" \
-      -DOPENSSL_CRYPTO_LIBRARY="$CRYPTO_LIB" \
-      -DUSE_LIBIDN2=OFF \
-      -DCURL_USE_LIBPSL=OFF \
-      -DUSE_BROTLI=OFF \
-      -DUSE_ZSTD=OFF \
-      -DUSE_NGHTTP2=OFF \
-      -DCURL_DISABLE_COOKIES=ON \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DCURL_STATICLIB=ON \
-      -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    make -j"$JOBS"
-    make install
-  popd >/dev/null
-  c_ok "curl 安装到：$CURL_INSTALL"
+step_redis() {
+  c_info "[redis] 初始化/更新"
+  ensure_submodule "third/redis" "https://github.com/redis/redis.git"
+  c_info "[redis] 开始编译"
+  (cd third/redis && make -j"${JOBS}")
+  c_ok "redis 编译完成"
 }
 
-step_aws_crt() {
-  c_info "[4] 编译 aws-crt-cpp"
-  ensure_submodule "$AWS_CRT_DIR" "https://github.com/awslabs/aws-crt-cpp.git"
-  pushd "$AWS_CRT_DIR" >/dev/null
-    git submodule update --init --recursive
-    rm -rf build install
-    mkdir build install && cd build
-
-    local OPENSSL_INC="$OPENSSL_INSTALL/include"
-    local OPENSSL_LIB64="$OPENSSL_INSTALL/lib64"
-    local OPENSSL_LIB="$OPENSSL_INSTALL/lib"
-    local SSL_LIB="${OPENSSL_LIB64}/libssl.a"
-    local CRYPTO_LIB="${OPENSSL_LIB64}/libcrypto.a"
-    if [[ ! -f "$SSL_LIB" ]]; then SSL_LIB="${OPENSSL_LIB}/libssl.a"; fi
-    if [[ ! -f "$CRYPTO_LIB" ]]; then CRYPTO_LIB="${OPENSSL_LIB}/libcrypto.a"; fi
-
-    cmake .. \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX="$AWS_CRT_INSTALL" \
-      -DUSE_OPENSSL=ON \
-      -DS2N_LIBCRYPTO=openssl \
-      -DBUILD_DEPS=ON \
-      -DOPENSSL_ROOT_DIR="$OPENSSL_INSTALL" \
-      -DOPENSSL_INCLUDE_DIR="$OPENSSL_INC" \
-      -DOPENSSL_SSL_LIBRARY="$SSL_LIB" \
-      -DOPENSSL_CRYPTO_LIBRARY="$CRYPTO_LIB"
-    make -j"$(detect_jobs)"
-    make install
-  popd >/dev/null
-  c_ok "aws-crt-cpp 安装到：$AWS_CRT_INSTALL"
-}
-
-step_aws_sdk() {
-  c_info "[5] 编译 aws-sdk-cpp (s3;core;transfer, 静态)"
-  ensure_submodule "$AWS_SDK_DIR" "https://github.com/aws/aws-sdk-cpp.git"
-  pushd "$AWS_SDK_DIR" >/dev/null
-    git submodule update --init --recursive
-    rm -rf build && mkdir build && cd build
-
-    local OPENSSL_INC="$OPENSSL_INSTALL/include"
-    local OPENSSL_LIB64="$OPENSSL_INSTALL/lib64"
-    local OPENSSL_LIB="$OPENSSL_INSTALL/lib"
-    local SSL_LIB="${OPENSSL_LIB64}/libssl.a"
-    local CRYPTO_LIB="${OPENSSL_LIB64}/libcrypto.a"
-    if [[ ! -f "$SSL_LIB" ]]; then SSL_LIB="${OPENSSL_LIB}/libssl.a"; fi
-    if [[ ! -f "$CRYPTO_LIB" ]]; then CRYPTO_LIB="${OPENSSL_LIB}/libcrypto.a"; fi
-
-    local CURL_INC="$CURL_INSTALL/include"
-    local CURL_LIBA="$CURL_INSTALL/lib/libcurl.a"
-
-    cmake .. \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH="$AWS_CRT_INSTALL;$AWS_SDK_INSTALL" \
-      -DCMAKE_INSTALL_PREFIX="$AWS_SDK_INSTALL" \
-      -DBUILD_ONLY="s3;core;transfer" \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DBUILD_TESTING=OFF \
-      -DENABLE_TESTING=OFF \
-      -DAUTORUN_UNIT_TESTS=OFF \
-      -DLEGACY_BUILD=ON \
-      -DCURL_INCLUDE_DIR="$CURL_INC" \
-      -DCURL_LIBRARY="$CURL_LIBA" \
-      -DOPENSSL_INCLUDE_DIR="$OPENSSL_INC" \
-      -DOPENSSL_SSL_LIBRARY="$SSL_LIB" \
-      -DOPENSSL_CRYPTO_LIBRARY="$CRYPTO_LIB" \
-      -DCMAKE_EXE_LINKER_FLAGS="\
-        -Wl,--start-group \
-          $CURL_LIBA \
-          $SSL_LIB \
-          $CRYPTO_LIB \
-        -Wl,--end-group \
-        -ldl -lpthread" \
-      -DCMAKE_SHARED_LINKER_FLAGS="\
-        -Wl,--start-group \
-          $SSL_LIB \
-          $CRYPTO_LIB \
-        -Wl,--end-group \
-        -ldl -lpthread"
-
-    make -j"$JOBS"
-    make install
-  popd >/dev/null
-  c_ok "aws-sdk-cpp 安装到：$AWS_SDK_INSTALL"
-}
-
-step_rocksdb() {
-  c_info "[6] 编译 RocksDB ($OS)"
-  ensure_submodule "$ROCKSDB_DIR" "https://github.com/facebook/rocksdb.git"
-
-  pushd "$ROCKSDB_DIR" >/dev/null
-    rm -rf build
-    mkdir build && cd build
-    if [[ "$OS" == "linux" ]]; then
-      cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DWITH_TESTS=OFF \
-        -DWITH_TOOLS=OFF \
-        -DWITH_BENCHMARK_TOOLS=OFF \
-        -DWITH_GFLAGS=OFF \
-        -DWITH_JEMALLOC=OFF \
-        -DUSE_RTTI=1 \
-        -DWITH_LIBURING=OFF
-      make -j"$JOBS"
-      ls -lh librocksdb.so || true
-      c_info "可在当前终端添加运行库路径："
-      echo "export LD_LIBRARY_PATH=$ROCKSDB_DIR/build:\$LD_LIBRARY_PATH"
-    else
-      cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS="-Wno-unused-parameter"
-      make -j"$JOBS"
-      ls librocksdb.dylib || true
-      c_info "可在当前终端添加运行库路径："
-      echo "export DYLD_LIBRARY_PATH=$ROCKSDB_DIR/build:\$DYLD_LIBRARY_PATH"
-    fi
-  popd >/dev/null
-  c_ok "RocksDB 构建完成"
-}
-
-step_hiredis() {
-  c_info "[7] 编译 hiredis (静态)"
-  ensure_submodule "$HIREDIS_DIR" "https://github.com/redis/hiredis.git"
-
-  pushd "$HIREDIS_DIR" >/dev/null
-    git submodule update --init --recursive || true
-    rm -rf build && mkdir build && cd build
-    cmake .. \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DENABLE_SSL=OFF \
-      -DENABLE_EXAMPLES=OFF \
-      -DENABLE_TESTS=OFF \
-      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-      -DCMAKE_INSTALL_PREFIX="$PWD/install"
-    make -j"$JOBS"
-    make install
-  popd >/dev/null
-  c_ok "hiredis 安装完成（静态）"
-}
 
 step_proto() {
   c_info "[8] 生成 protobuf"
@@ -318,17 +127,13 @@ step_proto() {
 }
 
 # ---------- 任务选择 ----------
-ALL_STEPS=(submodules openssl curl aws-crt-cpp aws-sdk-cpp rocksdb hiredis proto)
+ALL_STEPS=(submodules threadpool redis proto)
 
 run_step() {
   case "$1" in
     submodules)  step_submodules ;;
-    openssl)     step_openssl ;;
-    curl)        step_curl ;;
-    aws-crt-cpp) step_aws_crt ;;
-    aws-sdk-cpp) step_aws_sdk ;;
-    rocksdb)     step_rocksdb ;;
-    hiredis)     step_hiredis ;;
+    threadpool)  step_threadpool ;;
+    redis)       step_redis ;;
     proto)       step_proto ;;
     *) c_err "未知步骤：$1"; exit 1 ;;
   esac
@@ -341,7 +146,7 @@ main() {
 
   if [[ $# -eq 0 ]]; then
     # 默认顺序与说明保持一致
-    SEQ=(submodules openssl curl aws-crt-cpp aws-sdk-cpp rocksdb hiredis proto)
+    SEQ=(submodules threadpool redis proto)
   else
     SEQ=("$@")
   fi
@@ -351,13 +156,6 @@ main() {
   done
 
   c_ok "[SUCCESS] 全部完成"
-  echo
-  echo "常用环境变量导出（按需执行）："
-  if [[ "$OS" == "linux" ]]; then
-    echo "export LD_LIBRARY_PATH=$ROCKSDB_DIR/build:\$LD_LIBRARY_PATH"
-  else
-    echo "export DYLD_LIBRARY_PATH=$ROCKSDB_DIR/build:\$DYLD_LIBRARY_PATH"
-  fi
 }
 
 main "$@"

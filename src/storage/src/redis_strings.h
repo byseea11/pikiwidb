@@ -52,6 +52,8 @@ class RedisStrings : public Redis {
   Status Delvx(const Slice& key, const Slice& value, int32_t* ret);
   Status Setrange(const Slice& key, int64_t start_offset, const Slice& value, int32_t* ret);
   Status Strlen(const Slice& key, int32_t* len);
+  Status SstExtendIngest(const std::vector<std::string>& local_sst_paths, const std::string &config_path);
+  Status DoSstExtendIngest(std::vector<std::string>& local_sst_paths, const std::string &config_path);
 
   Status BitPos(const Slice& key, int32_t bit, int64_t* ret);
   Status BitPos(const Slice& key, int32_t bit, int64_t start_offset, int64_t* ret);
@@ -75,6 +77,10 @@ class RedisStrings : public Redis {
 
   // Iterate all data
   void ScanDatabase();
+
+  // 全局导入 session 计数器
+  std::atomic<int> ingest_sessions_{0};
+  std::mutex ingest_mu_;
 };
 
 }  //  namespace storage

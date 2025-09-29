@@ -8,8 +8,6 @@
 #include <thread>
 
 namespace iagent {
-
-// 建立连接并设置超时、keepalive
 static redisContext *connectWithTimeout(const Endpoint &ep) {
   timeval tv{};
   tv.tv_sec = ep.connect_timeout_ms / 1000;
@@ -20,12 +18,10 @@ static redisContext *connectWithTimeout(const Endpoint &ep) {
       redisFree(c);
     return nullptr;
   }
-  // 读写超时
   timeval rw{};
   rw.tv_sec = ep.rw_timeout_ms / 1000;
   rw.tv_usec = (ep.rw_timeout_ms % 1000) * 1000;
   redisSetTimeout(c, rw);
-  // 若你的 hiredis 版本支持
 #ifdef HIREDIS_KEEPALIVE
   redisEnableKeepAlive(c);
 #endif
@@ -72,7 +68,7 @@ PipelinedBurst::Conn *PipelinedBurst::pickConnForAppend_() {
   for (size_t tries = 0; tries < n; ++tries) {
     Conn *c = conns_[(rr_++) % n].get();
     if (max_inflight_per_conn_ > 0 && c->inflight >= max_inflight_per_conn_) {
-      continue; // 该连接已满，尝试下一条
+      continue; 
     }
     if (!ensureConnected_(*c)) {
       continue;
@@ -114,12 +110,8 @@ bool PipelinedBurst::appendOne_(Conn &c, const BurstItem &item) {
     int rc = redisAppendCommand(c.ctx, "MANIFESTINGEST %b",
                                 item.payload.data(), item.payload.size());
     if (rc != REDIS_OK) return false;
-
-    // 直接写 socket，不 poll
     int done = 0;
     redisBufferWrite(c.ctx, &done);
-
-    // 不再维护 inflight / tags
     LOG_INFO("[PipelinedBurst] Fire-and-forget send: tag=" + item.tag);
     return true;
 }
@@ -148,7 +140,6 @@ size_t PipelinedBurst::appendAll(const std::vector<BurstItem> &items,
     if (appendOne_(*c, it)) {
       ++accepted;
     } else {
-      // appendOne_ 内部 ensureConnected_ 失败等情况
       LOG_WARN("[PipelinedBurst] append failed on chosen conn, drop tag=" +
                it.tag);
       if (rejected)
@@ -174,8 +165,6 @@ std::optional<BurstResult> PipelinedBurst::getOneReply_(Conn &c) {
         }
         if (c.inflight > 0)
             c.inflight -= 1;
-
-        // 清理失败请求
         while (!c.tags.empty()) {
             BurstResult x{false, "connection dropped", std::move(c.tags.front())};
             c.tags.pop_front();
@@ -186,7 +175,6 @@ std::optional<BurstResult> PipelinedBurst::getOneReply_(Conn &c) {
         return br;
     }
 
-    // 发送非阻塞写操作，确保缓冲区中的请求被及时清理
     struct pollfd wfd {};
     wfd.fd = fd;
     wfd.events = POLLOUT;
@@ -210,7 +198,6 @@ std::optional<BurstResult> PipelinedBurst::getOneReply_(Conn &c) {
         return br;
     }
 
-    // 清理缓冲区
     if (wready > 0 && (wfd.revents & POLLOUT)) {
         int done = 0;
         do {
@@ -236,7 +223,6 @@ std::optional<BurstResult> PipelinedBurst::getOneReply_(Conn &c) {
         } while (!done);
     }
 
-    // 读取响应并减少 inflight
     struct pollfd rfd {};
     rfd.fd = fd;
     rfd.events = POLLIN;
@@ -326,13 +312,10 @@ PipelinedBurst::drainReplies(std::chrono::milliseconds max_wait,
     bool progressed = false;
 
     for (auto &p : conns_) {
-      // 先吐出该连接之前缓存的失败
       progressed |= drainPendingFailures_(*p, out);
 
       if (p->inflight == 0)
         continue;
-
-      // 尝试读一个回复
       auto r = getOneReply_(*p);
       if (r.has_value()) {
         out.emplace_back(std::move(*r));
@@ -342,7 +325,6 @@ PipelinedBurst::drainReplies(std::chrono::milliseconds max_wait,
     }
 
     if (!progressed) {
-      // 如果 inflight 已经是 0，且允许快速退出 → 立即返回
       if (force_quick_exit && inflight() == 0) {
         break;
       }
@@ -369,7 +351,6 @@ size_t PipelinedBurst::inflight() const {
   return sum;
 }
 
-// 私有静态工具：关闭连接
 void PipelinedBurst::closeConn_(Conn &c) {
   if (c.ctx) {
     redisFree(c.ctx);

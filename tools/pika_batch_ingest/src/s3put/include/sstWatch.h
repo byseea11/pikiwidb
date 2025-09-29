@@ -23,8 +23,6 @@ public:
   void SetCallback(Callback cb);
   void Start();
   void Stop();
-
-  // 测试辅助：直接触发回调
   void SimulateChange(const std::vector<std::string> &changed);
   void ScheduledScan();
 

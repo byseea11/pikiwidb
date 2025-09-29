@@ -42,7 +42,6 @@ namespace mock
                 }
             }
 
-            // fallback to midpoint if sampling repeatedly fails
             return static_cast<size_t>(mean_);
         }
 
@@ -57,8 +56,8 @@ namespace mock
         }
 
     private:
-        double mean_ = 0.0;   // 中心值 μ
-        double stddev_ = 1.0; // 标准差 σ
+        double mean_ = 0.0;  
+        double stddev_ = 1.0; 
         bool initialized_ = false;
     };
 

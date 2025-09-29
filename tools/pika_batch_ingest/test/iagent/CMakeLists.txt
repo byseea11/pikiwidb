@@ -1,7 +1,5 @@
-# iagent模块测试
 file(GLOB IAGENT_TEST_SRC CONFIGURE_DEPENDS "*.cpp")
 
-# 创建iagent测试可执行文件
 add_executable(test_iagent ${IAGENT_TEST_SRC})
 
 target_include_directories(test_iagent PUBLIC

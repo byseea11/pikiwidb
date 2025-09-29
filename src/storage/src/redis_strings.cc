@@ -748,7 +748,7 @@ Status RedisStrings::SstExtendIngest(const std::vector<std::string>& local_sst_p
 
   bool need_apply_restore = false;
 
-  // ==== 并发计数 & 激进配置 ====
+  // 激进配置
   {
     std::lock_guard<std::mutex> lk(ingest_mu_);
     if (ingest_sessions_.fetch_add(1) == 0) {
@@ -764,11 +764,11 @@ Status RedisStrings::SstExtendIngest(const std::vector<std::string>& local_sst_p
     }
   }
 
-  // ==== 执行 Ingest ====
+  // 执行 Ingest
   std::vector<std::string> paths = local_sst_paths;
   auto st = DoSstExtendIngest(paths, config_path);
 
-  // ==== 恢复配置（只有最后一个才恢复） ====
+  // 恢复配置（只有最后一个才恢复）
   {
     std::lock_guard<std::mutex> lk(ingest_mu_);
     if (need_apply_restore && ingest_sessions_.fetch_sub(1) == 1) {
@@ -784,7 +784,7 @@ Status RedisStrings::SstExtendIngest(const std::vector<std::string>& local_sst_p
         return Status::IOError("Failed to rewrite config.");
       }
     } else {
-      ingest_sessions_.fetch_sub(1);  // 普通减计数
+      ingest_sessions_.fetch_sub(1); 
     }
   }
 

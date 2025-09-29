@@ -18,8 +18,6 @@ namespace s3put
 
     S3Uploader::S3Uploader(const std::string &config_path)
     {
-
-        // 通过 ConfigManager 获取配置
         if (!ConfigManager::getInstance().loadConfig(config_path))
         {
             LOG_ERROR("Failed to load config file: " + config_path);
@@ -30,13 +28,11 @@ namespace s3put
 
         Aws::InitAPI(options_);
         LOG_DEBUG("AWS SDK initialized");
-
-        // 从配置中获取所需的参数
         Aws::Client::ClientConfiguration cfg;
         cfg.region = ConfigManager::getInstance().getConfigValue<std::string>("region");
         cfg.endpointOverride = ConfigManager::getInstance().getConfigValue<std::string>("endpoint");
         cfg.scheme = (cfg.endpointOverride.find("https") == 0) ? Aws::Http::Scheme::HTTPS : Aws::Http::Scheme::HTTP;
-        cfg.verifySSL = false; // 关闭证书校验，兼容 MinIO 自签名或 HTTP
+        cfg.verifySSL = false; 
 
         bool is_minio = ConfigManager::getInstance().getConfigValue<bool>("is_minio");
 
@@ -44,20 +40,16 @@ namespace s3put
             ConfigManager::getInstance().getConfigValue<std::string>("access_key"),
             ConfigManager::getInstance().getConfigValue<std::string>("secret_key"));
 
-        // MinIO 需要路径风格访问（不是 bucket.host.com，而是 host.com/bucket）
         client_ = std::make_shared<Aws::S3::S3Client>(
             creds,
             cfg,
             Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-            !is_minio, // MinIO 要使用 path-style
+            !is_minio,
             Aws::S3::US_EAST_1_REGIONAL_ENDPOINT_OPTION::LEGACY);
 
         LOG_DEBUG("S3 client initialized with endpoint: " + cfg.endpointOverride);
-
-        // 读取存储桶配置
         bucket_ = ConfigManager::getInstance().getConfigValue<std::string>("bucket");
 
-        // ========== Bucket 检查与自动创建 ==========
         Aws::S3::Model::HeadBucketRequest head_bucket_request;
         head_bucket_request.SetBucket(bucket_);
 
@@ -77,7 +69,6 @@ namespace s3put
                 config.SetLocationConstraint(Aws::S3::Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(cfg.region));
                 create_request.SetCreateBucketConfiguration(config);
             }
-            // 否则 MinIO 不设置 region，避免报错
 
             auto create_outcome = client_->CreateBucket(create_request);
             if (create_outcome.IsSuccess())
@@ -97,7 +88,7 @@ namespace s3put
 
     S3Uploader::~S3Uploader()
     {
-        Aws::ShutdownAPI(options_); // 退出 SDK
+        Aws::ShutdownAPI(options_); 
     }
 
     Result S3Uploader::UploadFile(const std::string &local_path, const std::string &s3_key, const std::string &bucket)
@@ -129,7 +120,7 @@ namespace s3put
                 std::string error_msg = "S3 upload failed: " + outcome.GetError().GetMessage();
                 if (attempt < max_retries) {
                     LOG_WARN("Upload attempt " + std::to_string(attempt + 1) + " failed: " + error_msg + ". Retrying...");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100 * (attempt + 1))); // Exponential backoff
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100 * (attempt + 1))); 
                 } else {
                     LOG_ERROR(error_msg);
                     return Result(Result::Ret::kS3UploadError, error_msg);
@@ -161,7 +152,7 @@ namespace s3put
                 std::string error_msg = "Upload text failed: " + outcome.GetError().GetMessage();
                 if (attempt < max_retries) {
                     LOG_WARN("Upload text attempt " + std::to_string(attempt + 1) + " failed: " + error_msg + ". Retrying...");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100 * (attempt + 1))); // Exponential backoff
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100 * (attempt + 1)));
                 } else {
                     LOG_ERROR(error_msg);
                     return Result(Result::Ret::kS3UploadError, error_msg);

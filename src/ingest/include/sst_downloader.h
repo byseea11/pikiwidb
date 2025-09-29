@@ -19,7 +19,6 @@ class SstDownloader {
 
   ~SstDownloader();
 
-  // 禁止拷贝，允许移动
   SstDownloader(const SstDownloader&) = delete;
   SstDownloader& operator=(const SstDownloader&) = delete;
   SstDownloader(SstDownloader&&) = default;

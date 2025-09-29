@@ -29,9 +29,10 @@
     - [工具与检查](#工具与检查)
       - [`check_cli.sh`](#check_clish)
       - [`proto.sh`](#protosh)
-      - [`sst.sh`](#sst)
-      - [`check_pika.sh`](#check_pika)
-      - [`check_txt.sh`](#check_txt)
+      - [`sst.sh`](#sstsh)
+      - [`check_pika.sh`](#check_pikash)
+      - [`check_txt.sh`](#check_txtsh)
+      - [`check_keys.sh`](#check_keyssh)
     - [数据流转](#数据流转)
       - [`mock.sh`](#mocksh)
       - [`exchange.sh`](#exchangesh)
@@ -499,7 +500,18 @@ JOBS=16 ./shell/build.sh
 
 ## 性能测试
 
-### 100G
+### 测试
+| 数据量  | pika完成时间(s) | 脚本完成时间(s) 
+| ---- | ------- | ---------------- | 
+| 1G   |         |                  |  
+| 10G  |         |                  |  
+| 20G  |         |                  |  
+| 50G  |         |                  |   
+| 80G  |         |                  |   
+| 100G |         |                  | 
+
+
+### 输出格式
 ```log
 Log Message
 [@MOCK][TIME] Starting  at Fri Sep 26 13:32:51 2025

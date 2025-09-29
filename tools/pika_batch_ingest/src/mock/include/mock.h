@@ -18,14 +18,10 @@ namespace mock
         json history;
 
         LOG_DEBUG("Loading folder history from: " + path.string());
-
-        // 确保目录存在（即使文件不存在，也先建目录）
         std::filesystem::create_directories(path.parent_path());
-
         std::ifstream ifs(path);
         if (!ifs.is_open())
         {
-            // 文件不存在，返回空历史
             history["folders"] = json::array();
             LOG_DEBUG("Folder history json not found, returning empty history: " + path.string());
             return history;
@@ -58,7 +54,7 @@ namespace mock
     {
         if (!history.contains("folders"))
         {
-            history["folders"] = json::array(); // Initialize "folders" if it doesn't exist
+            history["folders"] = json::array(); 
         }
         history["folders"].push_back(folder_name);
 

@@ -17,7 +17,7 @@ void SstWatcher::SetCallback(Callback cb) {
 
 void SstWatcher::Start() {
   if (running_.exchange(true)) {
-    return; // 已经在运行
+    return; 
   }
   pool_.enqueue([this] { ScheduledScan(); });
 }

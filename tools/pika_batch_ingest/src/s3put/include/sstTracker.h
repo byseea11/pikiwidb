@@ -59,7 +59,7 @@ namespace s3put
             long long size{-1};
             int64_t mtime_sec;
             std::string hash_hex;
-            int status = 0; // 0 = unchanged, 1 = changed
+            int status = 0; 
         };
 
         std::unordered_map<std::string, FileMeta> known_;

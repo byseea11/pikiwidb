@@ -1,7 +1,4 @@
-# Mock模块测试
 file(GLOB MOCK_TEST_SRC CONFIGURE_DEPENDS "*.cpp" "mock/*.cpp")
-
-# 创建mock测试可执行文件
 add_executable(test_mock ${MOCK_TEST_SRC})
 
 target_include_directories(test_mock PUBLIC

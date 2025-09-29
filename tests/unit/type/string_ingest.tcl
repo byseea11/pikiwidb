@@ -20,11 +20,11 @@ start_server {tags {"string manifestingest"}} {
         r get key_014310660701
     } {value_131919586971241288}
 
-    test {manifestingest: verify kv from data_1.json - 1} {
+    test {manifestingest: verify kv from data_0.json - 3} {
         r get key_059551467315
     } {value_108109118129921469}
 
-    test {manifestingest: verify kv from data_1.json - 2} {
+    test {manifestingest: verify kv from data_0.json - 4} {
         r get key_100101147501
     } {value_656914412392917379}
 }

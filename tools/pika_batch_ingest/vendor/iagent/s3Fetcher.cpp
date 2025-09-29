@@ -34,14 +34,13 @@ static void parseEndpointAndScheme(const std::string &endpoint,
   outEndpoint.clear();
   if (endpoint.rfind("http://", 0) == 0) {
     outScheme = Aws::Http::Scheme::HTTP;
-    outEndpoint = endpoint.substr(7); // 去掉 "http://"
+    outEndpoint = endpoint.substr(7);
 
   } else if (endpoint.rfind("https://", 0) == 0) {
     outScheme = Aws::Http::Scheme::HTTPS;
-    outEndpoint = endpoint.substr(8); // 去掉 "https://"
+    outEndpoint = endpoint.substr(8); 
 
   } else {
-    // 未指定协议：默认 https；outEndpoint 保持原样（可能为空）
     outScheme = Aws::Http::Scheme::HTTPS;
     outEndpoint = endpoint;
   }
@@ -58,7 +57,6 @@ static Aws::S3::S3Client makeS3Client(const S3Config &cfg) {
     clientConfig.endpointOverride = endpointStripped;
     clientConfig.region = cfg.region.empty() ? "us-east-1" : cfg.region;
   } else {
-    // 走官方 S3
     scheme = Aws::Http::Scheme::HTTPS;
     clientConfig.region = cfg.region;
   }
@@ -69,7 +67,6 @@ static Aws::S3::S3Client makeS3Client(const S3Config &cfg) {
 
   Aws::Auth::AWSCredentials credentials(cfg.accessKey, cfg.secretKey);
 
-  // 官方 S3
   return Aws::S3::S3Client(
       credentials, clientConfig,
       Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::RequestDependent,
@@ -109,7 +106,7 @@ LastManifest S3Fetcher::extractLastManifestFile(const std::string &content) {
     return LastManifest::from_json(j);
   } catch (const std::exception& e) {
     LOG_ERROR(std::string("[S3Fetcher] Failed to parse JSON: ") + e.what());
-    throw; // Re-throw to be caught by pollingLoop
+    throw; 
   }
 }
 
@@ -118,7 +115,6 @@ bool S3Fetcher::fetchLast(std::string &contentOut) {
 
   Aws::S3::Model::GetObjectRequest request;
   request.SetBucket(config_.bucket);
-  // Key 不要以 '/' 开头
   const std::string key = (!config_.key.empty() && config_.key.front() == '/')
                               ? config_.key.substr(1)
                               : config_.key;

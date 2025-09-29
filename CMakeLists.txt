@@ -656,10 +656,7 @@ ExternalProject_Add(rocksdb
   make -j${CPU_CORE}
 )
 
-# ----------------------------
-# OpenSSL / curl / AWS 依赖
-# ----------------------------
-# ---------- OpenSSL 3.1.4 ----------
+# OpenSSL 3.1.4 
 ExternalProject_Add(openssl
   GIT_REPOSITORY https://github.com/openssl/openssl.git
   GIT_TAG        openssl-3.1.4
@@ -674,19 +671,12 @@ ExternalProject_Add(openssl
   LOG_CONFIGURE 1 LOG_BUILD 1 LOG_INSTALL 1
 )
 
-set(OPENSSL_LIBDIR "lib" CACHE STRING "OpenSSL library dir (lib or lib64)")
-if(NOT EXISTS "${STAGED_INSTALL_PREFIX}/${OPENSSL_LIBDIR}/libssl.a")
-  if(EXISTS "${STAGED_INSTALL_PREFIX}/lib64/libssl.a")
-    set(OPENSSL_LIBDIR "lib64")
-  endif()
-endif()
+set(OPENSSL_LIBDIR "lib64")
 
 set(_ossl_inc "${STAGED_INSTALL_PREFIX}/include")
 set(_ossl_ssl "${STAGED_INSTALL_PREFIX}/${OPENSSL_LIBDIR}/libssl.a")
 set(_ossl_crypto "${STAGED_INSTALL_PREFIX}/${OPENSSL_LIBDIR}/libcrypto.a")
 
-
-# IMPORTED OpenSSL 目标（静态）
 add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
 add_library(OpenSSL::Crypto STATIC IMPORTED GLOBAL)
 set(_ossl_inc "${STAGED_INSTALL_PREFIX}/include")
@@ -703,7 +693,7 @@ set_target_properties(OpenSSL::Crypto PROPERTIES
 add_dependencies(OpenSSL::SSL   openssl)
 add_dependencies(OpenSSL::Crypto openssl)
 
-# ---------- curl 8.16.0 ----------
+# curl 8.16.0 
 ExternalProject_Add(curl
   GIT_REPOSITORY https://github.com/curl/curl.git
   GIT_TAG        curl-8_16_0
@@ -731,7 +721,6 @@ ExternalProject_Add(curl
 add_dependencies(curl openssl)
 
 
-# IMPORTED CURL 目标（静态）
 add_library(CURL::libcurl STATIC IMPORTED GLOBAL)
 set(_curl_inc "${STAGED_INSTALL_PREFIX}/include")
 if(EXISTS "${STAGED_INSTALL_PREFIX}/lib/libcurl.a")
@@ -746,7 +735,7 @@ set_target_properties(CURL::libcurl PROPERTIES
 )
 add_dependencies(CURL::libcurl curl)
 
-# ---------- aws-crt-cpp ----------
+# aws-crt-cpp 
 ExternalProject_Add(aws_crt
   GIT_REPOSITORY https://github.com/awslabs/aws-crt-cpp.git
   GIT_TAG        main
@@ -774,7 +763,7 @@ ExternalProject_Add(aws_crt
 add_dependencies(aws_crt openssl)
 
 
-# ---------- aws-sdk-cpp（s3;core;transfer）----------
+# aws-sdk-cpp(s3;core;transfer)
 ExternalProject_Add(aws_sdk
   GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
   GIT_TAG        main
@@ -811,27 +800,16 @@ add_custom_target(aws_all
   DEPENDS openssl curl aws_crt aws_sdk
 )
 
-# ---- 导入 aws-sdk 的静态库，指向已安装的 .a ----
-
 function(_crt_import one)
   add_library(${one} STATIC IMPORTED GLOBAL)
-  if(EXISTS "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
-    set(_lib "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
-  elseif(EXISTS "${STAGED_INSTALL_PREFIX}/lib64/lib${one}.a")
-    set(_lib "${STAGED_INSTALL_PREFIX}/lib64/lib${one}.a")
-  else()
-    message(STATUS "[aws-crt] skip missing ${one}")
-    return()
-  endif()
+  set(_lib "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
   set_target_properties(${one} PROPERTIES
     IMPORTED_LOCATION "${_lib}"
     INTERFACE_INCLUDE_DIRECTORIES "${STAGED_INSTALL_PREFIX}/include"
   )
-  # 这些库来自 aws_crt 的安装
   add_dependencies(${one} aws_crt)
 endfunction()
 
-# 高层 → 低层 的常见依赖链（按这个顺序导/链）
 _crt_import(aws-c-s3)
 _crt_import(aws-c-mqtt)
 _crt_import(aws-crt-cpp)
@@ -848,17 +826,12 @@ _crt_import(s2n)
 
 function(_aws_import one)
   add_library(${one} STATIC IMPORTED GLOBAL)
-  # 优先 lib，其次 lib64
-  if(EXISTS "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
-    set(_aws_lib "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
-  else()
-    set(_aws_lib "${STAGED_INSTALL_PREFIX}/lib64/lib${one}.a")
-  endif()
+  set(_aws_lib "${STAGED_INSTALL_PREFIX}/lib/lib${one}.a")
   set_target_properties(${one} PROPERTIES
     IMPORTED_LOCATION "${_aws_lib}"
     INTERFACE_INCLUDE_DIRECTORIES "${STAGED_INSTALL_PREFIX}/include"
   )
-  add_dependencies(${one} aws_sdk)  # 确保先安装
+  add_dependencies(${one} aws_sdk) 
 endfunction()
 
 _aws_import(aws-cpp-sdk-core)
@@ -866,7 +839,7 @@ _aws_import(aws-cpp-sdk-s3)
 _aws_import(aws-cpp-sdk-transfer)
 
 
-# ---------- nlohmann_json v3.11.2 via URL ----------
+# nlohmann_json v3.11.2 
 ExternalProject_Add(nlohmann_json
   URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
   PREFIX         ${EP_BASE_SUFFIX}/nlohmann_json

@@ -16,11 +16,9 @@ struct KvEntry
     uint32_t timestamp = 0;
 };
 
-// 类型别名
 using KvData = std::vector<KvEntry>;
 using DataType = KvData;
 
-// -------- JSON 序列化支持 --------
 inline void to_json(json &j, const KvEntry &entry)
 {
     j = json{
@@ -37,10 +35,9 @@ inline void from_json(const json &j, KvEntry &entry)
 {
     entry.key = j.at("key").get<std::string>();
     entry.value = j.at("value").get<std::string>();
-    entry.timestamp = j.value("expire", 0); // 如果没有则默认 0
+    entry.timestamp = j.value("expire", 0); 
 }
 
-// 返回当前时间戳 + 随机偏移（单位：秒）
 inline uint32_t generateRandomTimestamp(double zero_prob = 0.5, int offsetSeconds = 3600)
 {
     static thread_local std::mt19937 gen(std::random_device{}());
@@ -49,7 +46,7 @@ inline uint32_t generateRandomTimestamp(double zero_prob = 0.5, int offsetSecond
 
     if (prob_dist(gen) < zero_prob)
     {
-        return 0; // 20% 概率返回0
+        return 0; 
     }
 
     uint32_t now = static_cast<uint32_t>(

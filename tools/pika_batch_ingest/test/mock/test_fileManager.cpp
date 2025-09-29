@@ -23,13 +23,11 @@ protected:
     std::string testDir;
 };
 
-// 测试构造函数
 TEST_F(FileManagerTest, Constructor) {
     mock::FileManager fileManager(testDir);
     EXPECT_TRUE(true) << "FileManager constructor test";
 }
 
-// 测试数据写入功能
 TEST_F(FileManagerTest, WriteData) {
     mock::FileManager fileManager(testDir);
 
@@ -38,7 +36,7 @@ TEST_F(FileManagerTest, WriteData) {
     testData.push_back({"key2", "value2", 200});
 
     auto future = fileManager.write(testData);
-    Result result = future.get();   // 等待写盘完成
+    Result result = future.get(); 
     EXPECT_FALSE(result.isError()) << "Data writing failed: " << result.message();
 
     int fileCount = 0;
@@ -50,7 +48,6 @@ TEST_F(FileManagerTest, WriteData) {
     EXPECT_EQ(fileCount, 1) << "Expected exactly one file to be created";
 }
 
-// 测试多次写入
 TEST_F(FileManagerTest, MultipleWrites) {
     mock::FileManager fileManager(testDir);
 
@@ -72,7 +69,6 @@ TEST_F(FileManagerTest, MultipleWrites) {
     EXPECT_EQ(fileCount, 2) << "Expected two files to be created";
 }
 
-// 测试空数据写入
 TEST_F(FileManagerTest, WriteEmptyData) {
     mock::FileManager fileManager(testDir);
 
@@ -82,7 +78,6 @@ TEST_F(FileManagerTest, WriteEmptyData) {
     EXPECT_FALSE(result.isError()) << "Empty data writing failed: " << result.message();
 }
 
-// 测试大数据写入
 TEST_F(FileManagerTest, WriteLargeData) {
     mock::FileManager fileManager(testDir);
 
@@ -104,7 +99,6 @@ TEST_F(FileManagerTest, WriteLargeData) {
     EXPECT_EQ(fileCount, 1);
 }
 
-// 测试文件内容
 TEST_F(FileManagerTest, FileContentFormat) {
     mock::FileManager fileManager(testDir);
 
@@ -121,7 +115,6 @@ TEST_F(FileManagerTest, FileContentFormat) {
             std::ifstream file(entry.path(), std::ios::binary);
             std::string content((std::istreambuf_iterator<char>(file)),
                                 std::istreambuf_iterator<char>());
-            // 检查数据格式：这里如果用了 msgpack，需要改检查逻辑
             EXPECT_NE(content.find("key1"), std::string::npos);
             EXPECT_NE(content.find("value1"), std::string::npos);
             EXPECT_NE(content.find("key2"), std::string::npos);

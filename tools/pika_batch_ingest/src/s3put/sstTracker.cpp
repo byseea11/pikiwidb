@@ -28,12 +28,10 @@ namespace s3put
     static inline std::time_t ToTimeT(const std::filesystem::file_time_type &ft)
     {
         using namespace std::chrono;
-        // 把 file_time_type 转成 system_clock::time_point 再转 time_t
         return system_clock::to_time_t(time_point_cast<system_clock::duration>(
             ft - std::filesystem::file_time_type::clock::now() + system_clock::now()));
     }
 
-    // ==== SaveState ====
     bool SstTracker::SaveState(const std::string &path) const
     {
         nlohmann::json j;
@@ -45,12 +43,11 @@ namespace s3put
                 o["size"] = meta.size;
                 o["mtime_sec"] = static_cast<int64_t>(meta.mtime_sec);
                 o["hash"] = meta.hash_hex;
-                o["status"] = meta.status; // 0=unchanged, 1=changed
+                o["status"] = meta.status; 
                 j[fp] = std::move(o);
             }
         }
 
-        // 临时文件写入 + 原子替换
         const std::string tmp = path + ".tmp";
         {
             std::ofstream ofs(tmp, std::ios::binary | std::ios::trunc);
@@ -71,7 +68,6 @@ namespace s3put
         return true;
     }
 
-    // ==== LoadState ====
     bool SstTracker::LoadState(const std::string &path)
     {
         std::ifstream ifs(path, std::ios::binary);
@@ -106,7 +102,7 @@ namespace s3put
                 m.size = o.value("size", -1ll);
                 m.mtime_sec = o.value("mtime_sec", int64_t{0});
                 m.hash_hex = o.value("hash", "");
-                m.status = o.value("status", 0); // 默认未变更
+                m.status = o.value("status", 0); 
 
                 known_.emplace(fp, std::move(m));
             }
@@ -120,7 +116,6 @@ namespace s3put
         return true;
     }
 
-    // 从 known_ 中获取文件的状态
     int SstTracker::GetCurrentStatus(const std::string &filepath) const
     {
         std::lock_guard<std::mutex> lk(mu_);
@@ -131,20 +126,12 @@ namespace s3put
     void SstTracker::SetStatus(const std::string &filepath, int code)
     {
         std::lock_guard<std::mutex> lk(mu_);
-        FileMeta &meta = known_[filepath]; // 如果不存在就创建
+        FileMeta &meta = known_[filepath]; 
         meta.status = code;
     }
 
-    // ==== HasChanged ====
-    // 规则：
-    // - 若 (size, mtime_sec) 任一变化 => 判定 changed=1
-    // - 若都不变：
-    //     * 若 hash_verify_on_unchanged_==false => unchanged=0
-    //     * 若 ==true => 计算 hash，hash 不同则 changed=1，否则 unchanged=0
-    // - 新文件 => changed=1
     bool SstTracker::HasChanged(const std::string &filepath)
     {
-        // 先 stat（不加锁）
         std::error_code ec;
         fs::file_time_type ft = fs::last_write_time(filepath, ec);
         long long size = ec ? -1 : static_cast<long long>(fs::file_size(filepath, ec));
@@ -154,10 +141,7 @@ namespace s3put
             return false;
         }
 
-        // 将文件 mtime 转为秒
         const int64_t mtime_sec = static_cast<int64_t>(ToTimeT(ft));
-
-        // -------- 第一段锁：读取旧元数据，决定是否要算 hash --------
         bool need_hash = false;
         bool seen_before = false;
         {
@@ -165,7 +149,6 @@ namespace s3put
             auto it = known_.find(filepath);
             if (it == known_.end())
             {
-                // 新文件：需要算 hash（可选），最终会标记为 changed
                 need_hash = true;
             }
             else
@@ -173,7 +156,6 @@ namespace s3put
                 seen_before = true;
                 if (it->second.status == 1)
                 {
-                    // 已知为 changed，直接返回
                     return true;
                 }
                 const bool meta_unchanged = (it->second.size == size) && (it->second.mtime_sec == mtime_sec);
@@ -181,32 +163,24 @@ namespace s3put
                 {
                     if (!hash_verify_on_unchanged_)
                     {
-                        // 元信息没变，且不强制校验 hash → 直接认为未变
                         return false;
                     }
-                    // 需要 hash 校验
                     need_hash = true;
                 }
                 else
                 {
-                    // 元信息变了，后面用 hash 最终确认（并更新缓存）
                     need_hash = true;
                 }
             }
         }
-
-        // -------- 计算 hash（锁外）--------
         std::string cur_hash_hex;
         if (need_hash)
             cur_hash_hex = ShaToHex(ComputeSha256(filepath));
-
-        // -------- 第二段锁：最终判定 + 更新缓存/状态 --------
         bool changed = false;
         {
             std::lock_guard<std::mutex> lk(mu_);
-            FileMeta &meta = known_[filepath]; // 获取或创建
+            FileMeta &meta = known_[filepath];
 
-            // 再次 stat，避免第一段锁后发生变化
             std::error_code ec2;
             fs::file_time_type ft2 = fs::last_write_time(filepath, ec2);
             long long size2 = ec2 ? -1 : static_cast<long long>(fs::file_size(filepath, ec2));
@@ -229,14 +203,10 @@ namespace s3put
             }
 
             changed = (meta_changed_now || hash_changed_now);
-
-            // 更新缓存
             meta.size = size2;
             meta.mtime_sec = mtime_sec2;
             if (!cur_hash_hex.empty())
                 meta.hash_hex = cur_hash_hex;
-
-            // 根据结果更新 status，并维护 changed_files_
             if (changed)
             {
                 changed_files_.insert(filepath);
@@ -295,7 +265,6 @@ namespace s3put
 
     static inline std::string SanitizeToken(std::string s)
     {
-        // 防御性处理：把不安全字符转为下划线（可按需精简）
         for (char &c : s)
         {
             if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.'))
@@ -317,8 +286,8 @@ namespace s3put
             prefix.pop_back();
 
         fs::path p(abs_path);
-        std::string stem = p.stem().string();     // "data_4"
-        std::string ext = p.extension().string(); // ".sst"
+        std::string stem = p.stem().string();     
+        std::string ext = p.extension().string(); 
 
         if (stem.empty())
         {
@@ -334,11 +303,9 @@ namespace s3put
         if (dict.empty())
             dict = "unknown";
 
-        // 清理 token，防止出现奇怪的路径字符
         stem = SanitizeToken(stem);
         dict = SanitizeToken(dict);
 
-        // 目标： key_prefix + "/" + stem + "_" + dict + "_" + version  + ".sst"
         std::string filename = stem + "_" + key_prefix_ + "_" + current_version_id_ + ext;
         filename = NormalizeSlashes(filename);
 

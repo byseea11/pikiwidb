@@ -81,7 +81,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // 检查参数组合合法性
     bool singleMode = !kvPath.empty() && !sstPath.empty();
     bool batchMode = !dirPath.empty();
 
@@ -119,8 +118,7 @@ int main(int argc, char **argv)
     {
         LOG_INFO("Running in multi-threaded directory mode with Input directory: " + dirPath);
 
-        // 校验是否在 config 中被允许
-        auto state_path_dir = fs::path(dirPath).filename(); // 提取最后一级目录名
+        auto state_path_dir = fs::path(dirPath).filename();
         if (!fs::exists(state_path_dir))
         {
             std::error_code ec;

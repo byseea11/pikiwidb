@@ -13,7 +13,6 @@ using namespace storage;
 
 namespace fs = std::filesystem;
 
-// 写临时配置文件
 static std::string WriteTempConf(const std::string& content, const std::string& name_hint) {
   fs::path dir = fs::temp_directory_path() / "pikiwi_ingestconf_tests";
   fs::create_directories(dir);
@@ -23,15 +22,12 @@ static std::string WriteTempConf(const std::string& content, const std::string& 
   return p.string();
 }
 
-// 写临时 RocksDB 路径
 static std::string MkTmpDBDir(const std::string& name_hint) {
   fs::path dir = fs::temp_directory_path() / ("pikiwi_ingest_db_" + name_hint);
   fs::remove_all(dir);
   fs::create_directories(dir);
   return dir.string();
 }
-
-// ------------------------------------------------------------
 
 TEST(IngestConfTest, Load_Defaults_WhenEmptyFile) {
   std::string conf_path = WriteTempConf("", "empty_ingest.conf");
@@ -142,15 +138,10 @@ ingest.options.move-files : notabool
   std::string conf_path = WriteTempConf(conf_text, "invalid_bool.conf");
   IngestConf conf(conf_path);
   int ret = conf.Load();
-
-  // 按你实现的约定选择一个：
-  // 如果 Load() 对非法值返回错误：
-  // EXPECT_NE(0, ret);
-  // 如果 Load() 忽略非法值并用默认：
   EXPECT_EQ(0, ret);
 
   auto opt = conf.MakeIngestOptions();
-  (void)opt; // 确保不会崩
+  (void)opt; 
 }
 
 int main(int argc, char** argv) {

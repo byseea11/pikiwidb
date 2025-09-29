@@ -35,7 +35,7 @@ namespace mock
             std::ostringstream oss;
             oss << logicalPool_.prefix << prefixIndex << "_" << suffix;
             currentField_ = oss.str();
-            return 0; // dummy, generateField() returns real data
+            return 0; 
         }
 
         Result generateField() override

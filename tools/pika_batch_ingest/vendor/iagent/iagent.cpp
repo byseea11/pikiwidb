@@ -1,4 +1,3 @@
-// iagent/main.cpp
 #include "agentRunner.h"
 #include "utils/kconfig.h"
 #include "utils/threadScheduler.h"

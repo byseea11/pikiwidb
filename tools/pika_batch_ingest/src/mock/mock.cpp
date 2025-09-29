@@ -129,7 +129,6 @@ int main(int argc, char **argv)
     LOG_DEBUG("Target size: " + std::to_string(cmd.targetSizeMB) + "MB");
     LOG_DEBUG("Directory: " + cmd.directory);
 
-    // Check if mandatory configuration values are present
     if (cmd.directory.empty()) {
         LOG_ERROR("Directory not specified in config file");
         return 1;
@@ -139,12 +138,12 @@ int main(int argc, char **argv)
     if (!mock::CheckFolderNameUnique(folderHistory, cmd.directory))
     {
         LOG_ERROR("Folder name conflict detected: " + cmd.directory);
-        return 1; // Exit on folder name conflict
+        return 1;
     }
     if (!mock::SaveFolderHistory(folderHistory, cmd.directory))
     {
         LOG_ERROR("Failed to save folder history.");
-        return 1; // Exit on failure to save folder history
+        return 1; 
     }
 
     try
@@ -168,7 +167,6 @@ int main(int argc, char **argv)
         generator.setValueGenerator(mock::createFieldGenerator(cmd.valueType_, cmd.valuePrefix, cmd.valueSizeBytes, estimatedValuePoolSize));
         TimeTracker::Start("[@MOCK]");
         
-        // Check generator setup
         if (!generator.getKeyGenerator() || !generator.getValueGenerator()) {
             LOG_ERROR("Failed to create key or value generator");
             return 1;

@@ -3,11 +3,10 @@
 #include <fstream>
 #include <string>
 
-#include "ingest_s3_service.h"  // S3Service
+#include "ingest_s3_service.h"  
 
 namespace fs = std::filesystem;
 
-// 写一个临时 json 配置文件
 static std::string WriteTempJson(const std::string& content, const std::string& name_hint) {
   fs::path dir = fs::temp_directory_path() / "pikiwi_s3service_tests";
   fs::create_directories(dir);
@@ -22,7 +21,7 @@ TEST(S3ServiceTest, Start_WithMissingFile_ShouldFailAndFillErr) {
   std::string err;
   bool ok = s.Start("/definitely/not/exist/s3.conf", &err);
   EXPECT_FALSE(ok);
-  EXPECT_FALSE(err.empty());  // 应该说明找不到文件/读取失败
+  EXPECT_FALSE(err.empty()); 
 }
 
 TEST(S3ServiceTest, Start_WithBadJson_ShouldFail) {
@@ -40,8 +39,6 @@ TEST(S3ServiceTest, Start_WithBadJson_ShouldFail) {
 }
 
 TEST(S3ServiceTest, Start_WithMinimalValidJson_ShouldSucceedAndExposeRuntimeParams) {
-  // 依据 pika_s3_service.cc 里读取的字段：region/endpoint/ak/sk/bucket
-  // 以及运行期参数：transfer_threads/transfer_buf_bytes/max_inflight，重试策略 retry_*
   const std::string good_json = R"JSON(
   {
     "region": "us-east-1",
@@ -65,13 +62,11 @@ TEST(S3ServiceTest, Start_WithMinimalValidJson_ShouldSucceedAndExposeRuntimePara
   bool ok = s.Start(path, &err);
   ASSERT_TRUE(ok) << err;
 
-  // 基本资源应已就绪
   auto cli = s.Client();
   auto tm  = s.TransferMgr();
   ASSERT_TRUE(cli != nullptr);
   ASSERT_TRUE(tm  != nullptr);
 
-  // 运行期参数应按配置暴露
   EXPECT_EQ(s.Bucket(), "test-bucket");
   EXPECT_EQ(s.TransferThreads(), 2);
   EXPECT_EQ(s.TransferBufBytes(), static_cast<size_t>(1048576));
@@ -81,13 +76,11 @@ TEST(S3ServiceTest, Start_WithMinimalValidJson_ShouldSucceedAndExposeRuntimePara
   EXPECT_EQ(s.RetryMaxMs(), 500);
   EXPECT_NEAR(s.RetryJitter(), 0.1, 1e-9);
 
-  // Stop 可重入 & 不崩
   s.Stop();
   s.Stop();
 }
 
 TEST(S3ServiceTest, Start_WithDefaults_WhenFieldsMissing_ShouldStillWorkAndUseDefaults) {
-  // 只给最小必要项，让其它由默认值补齐（region 默认 us-east-1 等）
   const std::string partial_json = R"JSON(
   {
     "endpoint": "http://127.0.0.1:9000",
@@ -103,11 +96,9 @@ TEST(S3ServiceTest, Start_WithDefaults_WhenFieldsMissing_ShouldStillWorkAndUseDe
   bool ok = s.Start(path, &err);
   ASSERT_TRUE(ok) << err;
 
-  // 资源存在
   ASSERT_TRUE(s.Client() != nullptr);
   ASSERT_TRUE(s.TransferMgr() != nullptr);
 
-  // 默认值（按照你源码中的默认：threads=8, buf=8MB, max_inflight=8, retry(3,50,2000,0.2)）
   EXPECT_EQ(s.Bucket(), "bk");
   EXPECT_EQ(s.TransferThreads(), 8);
   EXPECT_EQ(s.TransferBufBytes(), static_cast<size_t>(8u << 20));
@@ -139,8 +130,8 @@ TEST(S3ServiceTest, Restart_ShouldRecreateResourcesAndNotLeak) {
   auto t1 = s.TransferMgr();
   ASSERT_TRUE(c1 && t1);
 
-  s.Stop();  // 释放一次
-  ASSERT_TRUE(s.Start(path, &err)) << err;  // 再启一次
+  s.Stop(); 
+  ASSERT_TRUE(s.Start(path, &err)) << err; 
 
   auto c2 = s.Client();
   auto t2 = s.TransferMgr();

@@ -56,7 +56,7 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
   std::lock_guard<std::mutex> lk(mu_);
   if (started_) return true;
 
-  // 1) Init AWS SDK
+  // Init AWS SDK
   try {
     Aws::InitAPI(options_);
   } catch (...) {
@@ -64,7 +64,7 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
     return false;
   }
 
-  // 2) 读取配置（允许注释）
+  // 读取配置
   std::string text;
   if (!ReadAll(conf_path, &text)) {
     if (err) *err = "Open config failed: " + conf_path;
@@ -81,7 +81,7 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
     return false;
   }
 
-  // 3) 填充配置（与你现有字段对齐）
+  // 填充配置
   conf_region_ = "us-east-1";
   Optional(j, "region", &conf_region_);
   Optional(j, "endpoint", &conf_endpoint_);
@@ -100,19 +100,18 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
   if (transfer_buf_bytes_ == 0) transfer_buf_bytes_ = (8u << 20);
   if (max_inflight_ == 0) max_inflight_ = 8;
 
-  // 4) 构建 ClientConfiguration
+  // 构建 ClientConfiguration
   Aws::Client::ClientConfiguration cfg;
   cfg.region = conf_region_.empty() ? "us-east-1" : conf_region_;
   if (!conf_region_.empty()) {
     cfg.endpointOverride = conf_endpoint_;
-    // 若 endpoint 以 "http://" 开头，改成 HTTP：
     if (conf_endpoint_.rfind("http://", 0) == 0)
       cfg.scheme = Aws::Http::Scheme::HTTP;
     else
       cfg.scheme = Aws::Http::Scheme::HTTPS;
   }
 
-  // 5) 创建 S3Client（优先显式 AK/SK，否则默认凭证链）
+  // 创建 S3Client
   try {
     if (!conf_ak_.empty() && !conf_sk_.empty()) {
       Aws::Auth::AWSCredentials creds(conf_ak_.c_str(), conf_sk_.c_str());
@@ -142,7 +141,7 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
   Optional(j, "retry_max_ms", &retry_max_ms_);
   Optional(j, "retry_jitter", &retry_jitter_);
 
-  // 6) 创建 TransferManager（线程池 + 配置）
+  // 创建 TransferManager
   try {
     xfer_pool_ =
         Aws::MakeShared<Aws::Utils::Threading::PooledThreadExecutor>("PikaS3XferPool", std::max(1, transfer_threads_));
@@ -151,13 +150,11 @@ bool S3Service::Start(const std::string& conf_path, std::string* err) {
     tcfg.s3Client = client_;
     tcfg.transferExecutor = xfer_pool_.get();
 
-    // 按你的配置保留 buffer/内存上限
     tcfg.bufferSize = transfer_buf_bytes_;
     const size_t min_total = transfer_buf_bytes_;
     const size_t heuristic = transfer_buf_bytes_ * static_cast<size_t>(std::max(1, transfer_threads_)) * 2;
     tcfg.transferBufferMaxHeapSize = std::max(min_total, heuristic);
 
-    // （可选）其它回调保持/删掉都行，这里留个空实现
     tcfg.transferInitiatedCallback = [](const Aws::Transfer::TransferManager*,
                                         const std::shared_ptr<const Aws::Transfer::TransferHandle>&) {};
 
@@ -200,7 +197,6 @@ void S3Service::Stop() {
   started_ = false;
 }
 
-// ===== getters =====
 std::shared_ptr<Aws::S3::S3Client> S3Service::Client() {
   std::lock_guard<std::mutex> lk(mu_);
   return client_;

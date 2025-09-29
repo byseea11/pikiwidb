@@ -20,8 +20,6 @@ namespace fs = std::filesystem;
 
 namespace s3put
 {
-
-    // ===================== 内部工具 & 防重入（匿名命名空间） =====================
     namespace
     {
 
@@ -30,8 +28,6 @@ namespace s3put
             using namespace std::chrono;
             return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
         }
-
-        // 原子写入文本文件（.tmp + rename）
         inline bool AtomicWriteText(const std::string &path,
                                     const std::string &body,
                                     std::string *err = nullptr)
@@ -76,7 +72,6 @@ namespace s3put
             return true;
         }
 
-        // 原子写入 Protobuf（二进制）
         inline bool AtomicWriteProto(const std::string &path,
                                      const google::protobuf::Message &msg,
                                      std::string *err = nullptr)
@@ -126,7 +121,6 @@ namespace s3put
             return true;
         }
 
-        // 按文件名中的 `_partN` 的 N 做数字排序
         inline void SortPartsByNumericIndex(std::vector<std::string> &parts)
         {
             auto key = [](const std::string &p) -> int
@@ -150,12 +144,10 @@ namespace s3put
                       { return key(a) < key(b); });
         }
 
-        // 进程内防重入/去重
         std::mutex g_mu;
-        std::unordered_set<std::string> g_building_versions; // 正在构建的 version_id
-        std::unordered_set<std::string> g_writing_parts;     // 正在写入的 part 路径
+        std::unordered_set<std::string> g_building_versions;
+        std::unordered_set<std::string> g_writing_parts; 
 
-        // 简单的 RAII 守卫
         struct BuildGuard
         {
             std::string version;
@@ -192,18 +184,12 @@ namespace s3put
     {
         using namespace std::chrono;
         const uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-        const uint64_t pid = static_cast<uint64_t>(get_pid()) % 1000ULL;                      // 3 位
-        const uint64_t seq = g_version_seq.fetch_add(1, std::memory_order_relaxed) % 1000ULL; // 3 位
-        const uint64_t ver = ms * 1000000ULL + pid * 1000ULL + seq;                           // 形如 17549...XYZ
+        const uint64_t pid = static_cast<uint64_t>(get_pid()) % 1000ULL;                   
+        const uint64_t seq = g_version_seq.fetch_add(1, std::memory_order_relaxed) % 1000ULL;
+        const uint64_t ver = ms * 1000000ULL + pid * 1000ULL + seq;       
         return std::to_string(ver);
     }
 
-    // ===================== ManifestBuilder 方法实现 =====================
-
-    /**
-     * 写入单个 manifest part（使用 protobuf: s3put.manifest.Manifest）
-     * 参数 files：已经构建好的每个条目的 proto `SSTFile`
-     */
     bool ManifestBuilder::WriteManifestPart(
         const std::vector<s3put::manifest::SSTFile> &files,
         const std::string &path,
@@ -214,7 +200,7 @@ namespace s3put
         part.set_timestamp(NowMs());
         for (const auto &f : files)
         {
-            *part.add_sst_files() = f; // 复制
+            *part.add_sst_files() = f; 
         }
         std::string err;
         if (!AtomicWriteProto(path, part, &err))
@@ -226,10 +212,6 @@ namespace s3put
         return true;
     }
 
-    /**
-     * 写 latest.manifest（JSON，列出所有 part 路径）
-     * 若希望 latest 也用 proto，可在 .proto 里新增消息后改这里
-     */
     bool ManifestBuilder::WriteLatestManifest(const std::string &path,
                                               const std::string &version_id,
                                               int64_t timestamp_ms,
@@ -250,12 +232,6 @@ namespace s3put
         return true;
     }
 
-    /**
-     * BuildAndWrite：
-     * - 并行预计算（key/hash/size）
-     * - 全局分块（每片最多 max_per_part 条）
-     * - 每片写成 Manifest(proto)；最后写 latest.manifest(JSON)
-     */
     bool ManifestBuilder::BuildAndWrite(const SstTracker &tracker,
                                         size_t num_threads,
                                         const std::string &manifest_dir,
@@ -264,7 +240,6 @@ namespace s3put
                                         const std::string &version_id,
                                         std::vector<std::string> *out_parts)
     {
-        // 同 version 防重入
         BuildGuard guard(version_id);
         if (!guard.ok())
         {
@@ -272,17 +247,15 @@ namespace s3put
             return false;
         }
 
-        // 跨进程目录锁（关键！）
         DirLock lock(manifest_dir);
         if (!lock.ok)
         {
             LOG_WARN("BuildAndWrite: another process is building in " + manifest_dir + ", skip.");
             if (out_parts)
                 out_parts->clear();
-            return true; // ← 不算失败
+            return true; 
         }
 
-        // 参数/目录
         if (version_id.empty())
         {
             LOG_ERROR("BuildAndWrite: version_id is empty.");
@@ -301,7 +274,6 @@ namespace s3put
             return false;
         }
 
-        // 文件快照（建议：这里的 files 是“本轮上传成功”的集合）
         std::vector<std::string> files = tracker.GetChangedFiles();
         if (files.empty())
         {
@@ -312,7 +284,6 @@ namespace s3put
         }
         LOG_INFO("BuildAndWrite start: version=" + version_id + ", files=" + std::to_string(files.size()));
 
-        // 并行预计算
         struct Entry
         {
             std::string sst_path;
@@ -342,7 +313,6 @@ namespace s3put
         for (auto &f : futs)
             f.get();
 
-        // 全局分块 + 预生成 part 路径（全局唯一）
         const size_t per = std::max<size_t>(1, max_per_part);
         const size_t num_parts = (entries.size() + per - 1) / per;
 
@@ -354,7 +324,6 @@ namespace s3put
                                       .string();
         }
 
-        // 调度写入（带全局去重，防止并发重入重复写同一 part）
         std::vector<std::future<std::pair<bool, std::string>>> writers;
         writers.reserve(num_parts);
 
@@ -402,7 +371,6 @@ namespace s3put
                                             }));
         }
 
-        // 收集、排序（数字）、去重、写 latest
         std::vector<std::string> manifest_files;
         std::vector<std::string> manifest_files_abs;
 

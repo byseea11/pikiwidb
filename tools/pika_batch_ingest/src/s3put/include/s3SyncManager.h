@@ -14,21 +14,13 @@ class S3SyncManager {
 public:
   S3SyncManager();
   ~S3SyncManager();
-
-  // 初始化组件
   bool Init(const std::string &s3_config_path,
             std::unique_ptr<SstTracker> tracker = nullptr,
             std::unique_ptr<S3Uploader> uploader = nullptr,
             std::unique_ptr<SstWatcher> watcher = nullptr,
             std::unique_ptr<SstTracker> builder = nullptr);
-
-  // 启动 watcher 并运行主循环
   void Run();
 
-  // Upload a directory directly
-  bool UploadDirectory(const std::string &directory);
-
-  // Getter 用于测试访问 watcher
   SstWatcher *GetWatcher() const { return watcher_.get(); }
   SstTracker *GetTracker() const { return tracker_.get(); }
   ManifestBuilder *GetBuilder() const { return builder_.get(); }

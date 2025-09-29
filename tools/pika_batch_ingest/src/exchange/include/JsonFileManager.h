@@ -8,13 +8,10 @@ namespace exchange
 
     using json = nlohmann::json;
 
-    // 使用虚拟函数来支持 Mock
     class JsonFileManagerBase
     {
     public:
         virtual ~JsonFileManagerBase() = default;
-
-        // 解析 JSON 文件的纯虚函数
         virtual DataType parse(const std::string &jsonStr) = 0; // 改为虚函数
 
     protected:

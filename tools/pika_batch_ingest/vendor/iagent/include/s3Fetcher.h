@@ -31,11 +31,7 @@ public:
 
   void start(const ManifestCallback &onManifestUpdate);
   void stop();
-
-  // 拉 latest.manifest 的内容
   bool fetchLast(std::string &contentOut);
-
-  // 拉任意 key（用于 .manifest）
   bool fetchObject(const std::string &key, std::string &contentOut);
 
 private:

@@ -16,6 +16,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  manager.Run(); // 启动一次性的文件上传
+  manager.Run();
   return 0;
 }

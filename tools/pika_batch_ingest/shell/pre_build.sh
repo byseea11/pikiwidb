@@ -34,6 +34,7 @@ cd "$PROJECT_ROOT"
 # 可通过环境变量覆盖
 INSTALL_ROOT="${INSTALL_ROOT:-$PROJECT_ROOT/third}"
 JOBS="${JOBS:-}"
+HIREDIS_DIR="$PROJECT_ROOT/third/redis/deps/hiredis"
 
 # 自动检测并行编译核数
 detect_jobs() {
@@ -110,14 +111,59 @@ step_threadpool() {
 step_redis() {
   c_info "[redis] 初始化/更新"
   ensure_submodule "third/redis" "https://github.com/redis/redis.git"
+  git -C "third/redis" submodule update --init --recursive deps/hiredis || true
   c_info "[redis] 开始编译"
   (cd third/redis && make -j"${JOBS}")
+  step_hiredis
   c_ok "redis 编译完成"
 }
 
+step_hiredis() {
+  set -euo pipefail
+  c_info "[hiredis] 编译 hiredis (静态)"
+
+  local PROJECT_ROOT_REAL
+  PROJECT_ROOT_REAL="$(realpath -P "${PROJECT_ROOT}")"
+
+  local REDIS_DIR="$PROJECT_ROOT_REAL/third/redis"
+  local HIREDIS_REL="deps/hiredis"
+  local HIREDIS_DIR_REAL="$REDIS_DIR/$HIREDIS_REL"
+
+  if [[ ! -d "$HIREDIS_DIR_REAL" ]] || [[ ! -d "$HIREDIS_DIR_REAL/.git" ]]; then
+    c_info "[hiredis] 初始化 redis 子模块：$HIREDIS_REL"
+    git -C "$REDIS_DIR" submodule update --init --recursive "$HIREDIS_REL"
+  else
+    c_info "[hiredis] 子模块已存在，执行更新"
+    git -C "$REDIS_DIR" submodule update --recursive "$HIREDIS_REL" || true
+  fi
+
+  local PREFIX="${INSTALL_ROOT}/hiredis"
+  rm -rf "$PREFIX" && mkdir -p "$PREFIX"
+
+  pushd "$HIREDIS_DIR_REAL" >/dev/null
+    rm -rf build && mkdir build && cd build
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DENABLE_SSL=OFF \
+      -DENABLE_EXAMPLES=OFF \
+      -DENABLE_TESTS=OFF \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+      -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+      -DCMAKE_INSTALL_LIBDIR=lib
+    make -j"${JOBS}"
+    make install
+  popd >/dev/null
+
+  export HIREDIS_ROOT="$PREFIX"
+  export HIREDIS_INCLUDE_DIR="$PREFIX/include"
+  export HIREDIS_LIBRARY="$PREFIX/lib/libhiredis.a"
+
+  c_ok "hiredis 安装完成（静态）：$HIREDIS_LIBRARY"
+}
 
 step_proto() {
-  c_info "[8] 生成 protobuf"
+  c_info "[proto] 生成 protobuf"
   if [[ -x "$PROJECT_ROOT/shell/proto.sh" ]]; then
     "$PROJECT_ROOT/shell/proto.sh"
   else

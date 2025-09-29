@@ -25,11 +25,7 @@ namespace exchange
             if (entry.is_regular_file() && entry.path().extension() == ".json")
             {
                 std::string jsonPath = entry.path().string();
-
-                // 获取相对路径（相对于 DEFAULTDIC）
                 std::filesystem::path relativePath = std::filesystem::relative(entry.path(), DEFAULTDIC);
-
-                // 构造 SST 文件的路径
                 std::filesystem::path sstPath = DEFAULTSSTDIC / relativePath;
                 sstPath.replace_extension(".sst");
 
@@ -48,14 +44,12 @@ namespace exchange
         DataType data;
         try
         {
-            data = fileManager->parse(inputJsonPath); // 使用传入的 fileManager 进行解析
+            data = fileManager->parse(inputJsonPath); 
         }
         catch (const std::exception &e)
         {
             return Result(Result::Ret::kFileReadError, "JSON parse failed: " + std::string(e.what()));
         }
-
-        // 确保输出路径的父目录存在
         try
         {
             fs::path outputPath(outputSstPath);
@@ -72,38 +66,22 @@ namespace exchange
             return Result(Result::Ret::kFileWriteError, "Failed to create directory: " + std::string(e.what()));
         }
 
-        // 创建 SstFileWriter，配置checksum
-        // 创建带有checksum配置的Options
         rocksdb::Options sst_options = options_;
-        
-        // 配置BlockBasedTableOptions以启用checksum
         rocksdb::BlockBasedTableOptions table_options;
-        table_options.checksum = rocksdb::kCRC32c; // 使用CRC32c checksum
-        
-        // 设置文件checksum生成器工厂
+        table_options.checksum = rocksdb::kCRC32c;
         sst_options.file_checksum_gen_factory = rocksdb::GetFileChecksumGenCrc32cFactory();
-        
-        // 将table_options设置到sst_options中
         sst_options.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
-        
         rocksdb::SstFileWriter writer(rocksdb::EnvOptions(), sst_options, cfh_);
-
         auto status = writer.Open(outputSstPath);
         if (!status.ok())
         {
             return Result(Result::Ret::kFileWriteError, "Failed to open SST file: " + status.ToString());
         }
-        
-
-        // 先按 ComparePair 排序
         std::sort(data.begin(), data.end(), ComparePair());
-
-        // 去重处理
         std::vector<KvEntry> deduped;
         for (size_t i = 0; i < data.size();)
         {
             deduped.push_back(data[i]);
-            // skip all with same key
             size_t j = i + 1;
             while (j < data.size() && data[j].key == data[i].key)
             {
@@ -115,8 +93,6 @@ namespace exchange
         size_t kvCount = 0;
         size_t totalRawBytes = 0;
         size_t totalEncodeBytes = 0;
-
-        // 写入去重后的数据
         for (const auto &entry : deduped)
         {
             storage::StringsValue strings_value(entry.value);
@@ -137,13 +113,11 @@ namespace exchange
             }
         }
 
-        // 完成 SST 写入
         status = writer.Finish();
         if (!status.ok())
         {
             return Result(Result::Ret::kFileWriteError, "Finish failed: " + status.ToString());
         }
-        // 更新全局统计
         totalKeys_.fetch_add(kvCount, std::memory_order_relaxed);
         totalRawBytes_.fetch_add(totalRawBytes, std::memory_order_relaxed);
         totalEncodeBytes_.fetch_add(totalEncodeBytes, std::memory_order_relaxed);
@@ -152,7 +126,6 @@ namespace exchange
 
     Result SstProcessor::mutiProcessSstFile(JsonFileManagerBase *fileManager, const std::string &inputDicPath)
     {
-        // 拼接 DEFAULTDIC 和 inputDicPath
         std::string inputDicPathFull = (fs::path(DEFAULTDIC) / inputDicPath).string();
         auto filePairs = collectJsonFiles(inputDicPathFull);
         if (filePairs.empty())
@@ -170,10 +143,7 @@ namespace exchange
         {
             futures.emplace_back(pool.enqueue([&, pair]()
                                               {
-            // 调用已有的单线程逻辑
             Result r = processSstFile(fileManager, pair.first, pair.second);
-
-            // 收集结果（加锁）
             {
                 std::lock_guard<std::mutex> lock(resultMutex);
                 results.push_back(r);
@@ -187,13 +157,11 @@ namespace exchange
             } }));
         }
 
-        // 等待所有任务完成
         for (auto &fut : futures)
         {
             fut.get();
         }
 
-        // 检查是否全部成功
         for (const auto &r : results)
         {
             if (r.isError())
@@ -202,7 +170,6 @@ namespace exchange
             }
         }
 
-         // === 写全局 sst_count.json ===
         try {
             nlohmann::json summary;
             summary["total_keys"] = totalKeys_.load();

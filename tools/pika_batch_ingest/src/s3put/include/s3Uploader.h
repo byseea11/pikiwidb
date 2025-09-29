@@ -13,7 +13,7 @@ namespace s3put
     class S3Uploader
     {
     public:
-        S3Uploader(const std::string &config_path); // 从 JSON 加载并初始化 SDK
+        S3Uploader(const std::string &config_path); 
         ~S3Uploader();
 
         Result UploadFile(const std::string &local_path, const std::string &s3_key, const std::string &bucket = "");

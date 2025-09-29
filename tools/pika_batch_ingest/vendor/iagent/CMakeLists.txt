@@ -1,34 +1,56 @@
-file(GLOB_RECURSE IAGENT_SRC CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE IAGENT_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 set(IAGENT_MAIN "${CMAKE_CURRENT_SOURCE_DIR}/iagent.cpp")
 if(EXISTS "${IAGENT_MAIN}")
   list(FILTER IAGENT_SRC EXCLUDE REGEX ".*/iagent\\.cpp$")
 endif()
 
-_pick_lib(PIKI_LIB_hiredis hiredis)
+set(HIREDIS_ROOT ${INGEST_ROOT_DIR}/third/hiredis)
 
-find_path(HIREDIS_INCLUDE_DIR hiredis/hiredis.h
+find_path(HIREDIS_INCLUDE_DIR NAMES hiredis/hiredis.h
   HINTS
+    ${HIREDIS_ROOT}/include
     ${PROJECT_ROOT_DIR}/deps/include
+    ${CMAKE_SOURCE_DIR}/deps/include
+    /usr/local/include /usr/include
 )
 
-add_library(iagent_lib STATIC ${IAGENT_SRC})
-
-target_include_directories(iagent_lib PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+find_library(HIREDIS_LIBRARY NAMES hiredis
+  HINTS
+    ${HIREDIS_ROOT}/lib      ${HIREDIS_ROOT}/lib64
+    ${PROJECT_ROOT_DIR}/deps/lib   ${PROJECT_ROOT_DIR}/deps/lib64
+    ${CMAKE_SOURCE_DIR}/deps/lib
+    /usr/local/lib /usr/lib
 )
 
-if(HIREDIS_INCLUDE_DIR)
-  target_include_directories(iagent_lib PUBLIC ${HIREDIS_INCLUDE_DIR})
+add_library(hiredis::hiredis STATIC IMPORTED GLOBAL)
+set_target_properties(hiredis::hiredis PROPERTIES
+  IMPORTED_LOCATION "${HIREDIS_LIBRARY}"
+  INTERFACE_INCLUDE_DIRECTORIES "${HIREDIS_INCLUDE_DIR}"
+)
+
+if(IAGENT_SRC)
+  add_library(iagent_lib STATIC ${IAGENT_SRC})
+  target_include_directories(iagent_lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${HIREDIS_INCLUDE_DIR}
+  )
+  target_link_libraries(iagent_lib PUBLIC hiredis::hiredis)
+else()
+  add_library(iagent_lib INTERFACE)
+  target_include_directories(iagent_lib INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${HIREDIS_INCLUDE_DIR}
+  )
+  target_link_libraries(iagent_lib INTERFACE hiredis::hiredis)
 endif()
 
 link_pikiwidb_libs(iagent_lib)
-
-target_link_libraries(iagent_lib PUBLIC ${PIKI_LIB_hiredis})
-
 link_aws_static(iagent_lib)
 
-target_link_libraries(iagent_lib PUBLIC pthread z dl)
+if(TARGET iagent_lib AND TARGET_PROPERTY_VALUE)
+endif()
+target_link_libraries(iagent_lib PUBLIC pthread dl z)
 
 set_common_definitions(iagent_lib)
 
@@ -38,5 +60,7 @@ if(EXISTS "${IAGENT_MAIN}")
   set_common_definitions(iagent)
 endif()
 
-message(STATUS "PROJECT_DIR=${PROJECT_DIR}")
-message(STATUS "CONFIG_DIR=${CONFIG_DIR}")
+list(LENGTH IAGENT_SRC _n)
+message(STATUS "IAGENT_SRC count = ${_n}")
+message(STATUS "HIREDIS_INCLUDE_DIR = ${HIREDIS_INCLUDE_DIR}")
+message(STATUS "HIREDIS_LIBRARY     = ${HIREDIS_LIBRARY}")

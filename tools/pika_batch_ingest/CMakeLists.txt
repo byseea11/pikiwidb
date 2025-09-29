@@ -1,8 +1,4 @@
 cmake_minimum_required(VERSION 3.15)
-
-# =========================
-# Project / Global settings
-# =========================
 project(bingest LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,33 +9,26 @@ get_filename_component(PROJECT_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLU
 
 cmake_policy(SET CMP0079 NEW)
 
-# 方便切换日志/路径常量
 set(PROJECT_DIR "${CMAKE_SOURCE_DIR}/data")
 set(CONFIG_DIR  "${CMAKE_SOURCE_DIR}/config")
 
-# ================
-# Include 路径
-# ================
 include_directories(
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/third/ThreadPool
 )
 
-# 统一第三方头文件
 set(DEPS_INCLUDE_DIR "${PROJECT_ROOT_DIR}/deps/include")
 if(EXISTS "${DEPS_INCLUDE_DIR}")
   include_directories(${DEPS_INCLUDE_DIR})
 endif()
 
+set(INGEST_ROOT_DIR "${CMAKE_SOURCE_DIR}")
 set(EP_BASE_SUFFIX "buildtrees")
 set(STAGED_INSTALL_PREFIX ${PROJECT_ROOT_DIR}/deps)
 set(INSTALL_INCLUDEDIR ${STAGED_INSTALL_PREFIX}/include)
 set(ROCKSDB_INCLUDE_DIR ${INSTALL_INCLUDEDIR})
 set(ROCKSDB_SOURCE_DIR ${PROJECT_ROOT_DIR}/${EP_BASE_SUFFIX}/Source/rocksdb)
 
-# =========================
-# Vendor 静态库所在目录
-# =========================
 set(PIKIWIDB_LIB_PATH "${CMAKE_SOURCE_DIR}/vendor/lib/pika")
 message(STATUS "Using link directories: ${PIKIWIDB_LIB_PATH}")
 
@@ -48,9 +37,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(_is_debug ON)
 endif()
 
-# =========================
-# 统一挑库宏
-# =========================
 macro(_pick_lib outvar)
   set(_cands ${ARGN})
   unset(${outvar})
@@ -139,7 +125,6 @@ set(PIKIWIDB_LIBS
   ${PIKI_LIB_gmock_main}
 )
 
-# 这些函数必须在 add_subdirectory 之前定义，供子目录使用
 function(link_pikiwidb_libs target)
   target_link_libraries(${target} PUBLIC ${PIKIWIDB_LIBS})
 endfunction()
@@ -151,10 +136,8 @@ function(set_common_definitions target)
   )
 endfunction()
 
-# =========================
-# 头文件（OpenSSL / CURL / AWS / 兜底）
-# =========================
 set(OPENSSL_INCLUDE_DIR "${PROJECT_ROOT_DIR}/deps/include" CACHE PATH "")
+set(CURL_INCLUDE_DIR    "${PROJECT_ROOT_DIR}/deps/include" CACHE PATH "")
 set(CURL_INCLUDE_DIR    "${PROJECT_ROOT_DIR}/deps/include" CACHE PATH "")
 
 set(AWS_CRT_CPP_DIR "${PROJECT_ROOT_DIR}/deps" CACHE PATH "")
@@ -163,19 +146,10 @@ set(AWS_SDK_CPP_DIR "${PROJECT_ROOT_DIR}/deps" CACHE PATH "")
 include_directories(${OPENSSL_INCLUDE_DIR} ${CURL_INCLUDE_DIR})
 include_directories(${AWS_CRT_CPP_DIR}/include ${AWS_SDK_CPP_DIR}/include)
 
-# =========================
-# 链接器选项
-# =========================
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-undefined")
 
-# =========================
-# AWS 链接
-# =========================
 include(${CMAKE_CURRENT_LIST_DIR}/aws.cmake)
 
-# ====================
-# Subdirectories/Targets
-# ====================
 add_subdirectory(src/mock)
 add_subdirectory(src/exchange)
 add_subdirectory(src/s3put)

@@ -16,24 +16,17 @@ S3SyncManager::~S3SyncManager() {
     watcher_->Stop();
 }
 
-// ====== 保持不变：读取配置并解析 SST 根目录 ======
 std::string S3SyncManager::GetSstRoot(const std::string &config_path) {
-  // 获取配置中的 "dict" 路径部分
   std::string dict =
       ConfigManager::getInstance().getConfigValue<std::string>("dict");
   if (dict.empty()) {
     throw std::runtime_error("The 'dict' configuration value is empty");
   }
 
-  // 拼接路径
   std::filesystem::path full_path = fs::path(PROJECT_DIR) / dict;
-
-  // 检查路径是否存在
   if (!fs::exists(full_path)) {
     throw std::runtime_error("The path does not exist: " + full_path.string());
   }
-
-  // 路径存在，返回路径字符串
   return full_path.string();
 }
 
@@ -41,9 +34,8 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
                          std::unique_ptr<SstTracker> tracker,
                          std::unique_ptr<S3Uploader> uploader,
                          std::unique_ptr<SstWatcher> watcher,
-                         std::unique_ptr<SstTracker> /*builder_unused*/)
+                         std::unique_ptr<SstTracker>)
 {
-  // 1) 读取配置和初始化
   sst_root_ = GetSstRoot(s3_config_path);
   if (sst_root_.empty())
   {
@@ -57,8 +49,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
   const std::string manifest_dir = MANIFESTDIC;
   const std::string latest_manifest = LASTMANIFEST;
 
-  // 确保 latest_manifest 的目录存在
-
   fs::path latest_manifest_dir = fs::path(latest_manifest).parent_path();
   if (!fs::exists(latest_manifest_dir))
   {
@@ -71,7 +61,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
     }
   }
 
-  // 确保 state_path 的目录存在
   fs::path state_path_dir = fs::path(state_path).parent_path();
   if (!fs::exists(state_path_dir))
   {
@@ -84,30 +73,24 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
     }
   }
 
-  // 配置检查
   if (key_prefix.empty() || state_path.empty())
   {
     LOG_ERROR("Config missing: key_prefix or state_path must be set.");
     return false;
   }
 
-  // 2) 初始化 tracker
   tracker_ = tracker ? std::move(tracker) : std::make_unique<SstTracker>();
   tracker_->SetSstRoot(sst_root_);
   tracker_->SetKeyPrefix(key_prefix);
 
-  // 尝试加载状态文件
   if (!tracker_->LoadState(state_path))
   {
     LOG_WARN("SstTracker state not found; cold start.");
   }
 
-  // 3) 初始化 uploader
   uploader_ = uploader ? std::move(uploader) : std::make_unique<S3Uploader>(s3_config_path);
 
-  // 4) 初始化 watcher 和回调
-  // Note: We're not using the watcher for periodic scans anymore, but we'll trigger it once
-  const size_t watch_interval_sec = 0; // Disable periodic scanning
+  const size_t watch_interval_sec = 0; 
   watcher_ = watcher ? std::move(watcher) : std::make_unique<SstWatcher>(*tracker_, sst_root_, pool_, watch_interval_sec);
 
   watcher_->SetCallback([this, files_per_manifest, manifest_dir, latest_manifest, state_path](const std::vector<std::string> &changed)
@@ -118,12 +101,10 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
     return;
   }
 
-  // 0) 生成并设置本轮 version_id
   const std::string version_id = ManifestBuilder::GenerateVersionId();
   tracker_->SetCurrentVersionId(version_id);
   LOG_INFO("Starting build/upload for version: " + version_id);
 
-  // 1) 并发上传
   size_t upload_concurrency = std::max<size_t>(1, std::thread::hardware_concurrency());
   std::atomic<size_t> idx{0};
   std::mutex ok_mu;
@@ -150,7 +131,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
           continue;
         }
 
-        // 添加重试机制
         const int max_retries = 3;
         bool uploaded = false;
         for (int attempt = 0; attempt <= max_retries; ++attempt) {
@@ -184,7 +164,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
 
   LOG_INFO("Upload finished: ok=" + std::to_string(uploaded_ok.size()) + " / total=" + std::to_string(changed.size()));
 
-  // 2) 仅使用上传成功的文件来构建 manifest
   tracker_->ReplaceChanged(uploaded_ok);
   
   const std::string key_prefix = ConfigManager::getInstance().getConfigValue<std::string>("dict");
@@ -210,12 +189,10 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
   }
   if (parts.empty())
   {
-    // 被别的进程占用锁，本次跳过
     LOG_INFO("Manifest build skipped (lock held by another process).");
     return;
   }
 
-  // 3) 上传 manifest parts
   LOG_INFO("Uploading manifest parts ...");
   for (const auto &part : parts)
   {
@@ -231,12 +208,11 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
       if (rc.isError())
       {
         LOG_ERROR(std::string("Upload manifest part failed: ") + rc.message());
-        return; // Exit on manifest upload failure
+        return; 
       }
     }
   }
 
-  // 4) 上传 latest.manifest
   LOG_INFO("Uploading latest.manifest ...");
   {
     std::ifstream in(latest_manifest, std::ios::binary);
@@ -252,7 +228,7 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
       if (rc.isError())
       {
         LOG_ERROR(std::string("Upload latest.manifest failed: ") + rc.message());
-        return; // Exit on failure to open latest.manifest
+        return; 
       }
       else
       {
@@ -261,7 +237,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
     }
   }
 
-  // 5) 保存 tracker 状态
   if (tracker_->SaveState(state_path))
   {
     LOG_INFO("SstTracker state saved: " + state_path);
@@ -271,7 +246,6 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
     LOG_WARN("Failed to save SstTracker state: " + state_path);
   }
 
-  // 6) 清空变更
   tracker_->ClearChanged();
   LOG_INFO("Watcher callback finished. version=" + version_id + " parts=" + std::to_string(parts.size()) + " files=" + std::to_string(changed.size())); });
 
@@ -279,9 +253,8 @@ bool S3SyncManager::Init(const std::string &s3_config_path,
 }
 
 void S3SyncManager::Run() {
-  // Instead of starting a continuous watcher, just trigger one scan
   if (watcher_) {
-    watcher_->ScheduledScan(); // Perform a single scan and upload
+    watcher_->ScheduledScan(); 
   }
   LOG_INFO("S3SyncManager finished.");
 }

@@ -18,7 +18,6 @@ public:
         return instance;
     }
 
-    // 初始化调度器：最多使用硬件并发线程数的 2/3
     void init(unsigned totalThreads = std::thread::hardware_concurrency())
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -29,7 +28,6 @@ public:
         allocations_.clear();
     }
 
-    // 注册每个模块的逻辑线程需求
     void registerLogicalRequest(const std::string &name, size_t logical)
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -41,7 +39,6 @@ public:
         logicalRequests_[name] = logical;
     }
 
-    // 计算并分配实际线程
     void finalize()
     {
         std::lock_guard<std::mutex> lock(mutex_);

@@ -1,0 +1,6 @@
+Log file created at: 2025/09/29 10:33:47
+Running on machine: pikiwidb
+Running duration (h:mm:ss): 0:00:00
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+W20250929 10:33:47.467304 2687096 pika_server.cc:71] 0.0.0.0
+W20250929 10:33:48.579474 2687951 pika_kv.cc:209] [ManifestIngestCmd] Wrong number of arguments

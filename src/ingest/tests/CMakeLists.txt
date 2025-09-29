@@ -8,12 +8,10 @@ aux_source_directory(../src TEST_SRCS)
 
 add_compile_definitions(PIKA_ROOT_DIR="${CMAKE_SOURCE_DIR}")
 
-# set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/build)
 foreach(blackwindow_test_source ${BLACKWINDOW_TEST_SOURCE})
   get_filename_component(ingest_test_filename ${blackwindow_test_source} NAME)
   string(REPLACE ".cc" "" blackwindow_test_name ${ingest_test_filename})
 
-  # Add the test target
   add_executable(${blackwindow_test_name} ${blackwindow_test_source})
   target_include_directories(${blackwindow_test_name}
     PUBLIC ${CMAKE_SOURCE_DIR}/include

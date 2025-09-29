@@ -8,9 +8,6 @@
 
 namespace mock
 {
-    /**
-     * @brief 逻辑字段池，只保存前缀和池大小，无需存储实际字段内容。
-     */
     struct LogicalFieldPool
     {
         std::string prefix;
@@ -25,18 +22,10 @@ namespace mock
 
         virtual size_t getFieldPoolSize() = 0;
         virtual size_t getFieldSize() = 0;
-
-        /**
-         * @brief 子类需要实现此接口，用于生成一个 index（如随机/Zipfian 分布等）。
-         */
         virtual size_t generateIndex() = 0;
-
-        /**
-         * @brief 字段生成逻辑：拼接直到刚好满足 fieldSize_，中途截断。
-         */
         virtual Result generateField()
         {
-            std::string full = logicalPool_.prefix; // 前缀只加一次
+            std::string full = logicalPool_.prefix; 
 
             while (full.size() < fieldSize_)
             {
@@ -46,7 +35,7 @@ namespace mock
                 if (full.size() + indexStr.size() >= fieldSize_)
                 {
                     size_t remain = fieldSize_ - full.size();
-                    full += indexStr.substr(0, remain); // 仅拼接剩余的部分
+                    full += indexStr.substr(0, remain); 
                     break;
                 }
 
@@ -56,10 +45,6 @@ namespace mock
             return Result(Result::kOk, full);
         }
 
-        /**
-         * @brief 估算生成满足字段长度 fieldSize_ 所需拼接次数。
-         *        假设每次拼接 prefix + index，估算平均长度。
-         */
         virtual size_t estimateRepeatCount() const
         {
             size_t indexDigits = std::to_string(logicalPool_.size).size();
@@ -87,8 +72,8 @@ namespace mock
         }
 
     protected:
-        LogicalFieldPool logicalPool_{}; // 新结构，包含前缀和 size
-        size_t fieldSize_ = 16;          // 表示 key 或 value size
+        LogicalFieldPool logicalPool_{}; 
+        size_t fieldSize_ = 16;      
     };
 
 } // namespace mock

@@ -18,7 +18,6 @@ S3Config ConfigLoader::loadS3Config(const std::string &filePath) {
   json j;
   file >> j;
   
-  // Validate required fields
   if (!j.contains("endpoint") || !j.contains("region") || !j.contains("bucket") || 
       !j.contains("key") || !j.contains("access_key") || !j.contains("secret_key") ||
       !j.contains("manifest_batch") || !j.contains("connect_timeout_ms") || 
@@ -49,7 +48,6 @@ PikaConfig ConfigLoader::loadPikaConfig(const std::string &filePath) {
   json j;
   file >> j;
   
-  // Validate required fields
   if (!j.contains("host") || !j.contains("port")) {
     LOG_ERROR("Missing required fields in Pika config file: " + filePath);
     throw std::runtime_error("Missing required fields in Pika config file: " + filePath);

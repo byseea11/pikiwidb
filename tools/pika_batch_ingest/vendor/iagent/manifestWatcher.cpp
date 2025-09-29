@@ -22,7 +22,6 @@ void ManifestWatcher::loadOffset() {
 }
 
 void ManifestWatcher::loadQueueFromDisk() {
-  // 队列文件按 “每行一个条目” 存，前面的 currentOffset_ 行已确认
   std::ifstream in(queueFilePath_);
   if (!in)
     return;
@@ -58,12 +57,10 @@ void ManifestWatcher::enqueue(const std::string &content) {
     return;
 
   if (seen_.insert(content).second) {
-    // 新条目
     ready_.push_back(content);
     persistEnqueue(content);
     LOG_DEBUG("[ManifestWatcher] Enqueueing content: " + content);
   } else {
-    // 已存在，忽略
     LOG_DEBUG("[ManifestWatcher] Duplicate ignored: " + content);
   }
 }
@@ -74,7 +71,6 @@ bool ManifestWatcher::hasPending() {
 }
 
 std::string ManifestWatcher::next() {
-  // 仅 peek：不前移，不触碰 staged_/offset
   std::lock_guard<std::mutex> lk(mutex_);
   if (ready_.empty())
     return {};
@@ -82,7 +78,6 @@ std::string ManifestWatcher::next() {
 }
 
 std::string ManifestWatcher::popNext() {
-  // 真实消费：从 ready_ 弹出 -> 放入 staged_
   std::lock_guard<std::mutex> lk(mutex_);
   if (ready_.empty())
     return {};
@@ -93,12 +88,10 @@ std::string ManifestWatcher::popNext() {
 }
 
 void ManifestWatcher::ack() {
-  // 兼容旧接口：确认 staged 的一条（FIFO）
   std::lock_guard<std::mutex> lk(mutex_);
   if (staged_.empty())
     return;
 
-  // 按顺序提交偏移
   staged_.pop_front();
   ++currentOffset_;
   persistOffset();

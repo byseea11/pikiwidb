@@ -40,13 +40,10 @@ Result DataGen::generateData() {
   size_t workerThreads = (numThreads_ > 1) ? (numThreads_ - 1) : 1;
   ThreadPool pool(workerThreads);
   LOG_DEBUG("numThreads: " + std::to_string(numThreads_));
-
-  // 用于收集所有写入 future
   std::vector<std::future<Result>> futures;
 
   for (size_t i = 1; i < totalFiles; ++i) {
       futures.emplace_back(pool.enqueue([this, perFileDataSize] {
-          // generateFile 返回 std::future<Result>，这里立刻 get 成 Result
           return this->generateFile(perFileDataSize).get();
       }));
   }
@@ -80,8 +77,6 @@ std::future<Result> DataGen::generateFile(size_t fileSizeMB) {
 
     LOG_DEBUG("Thread " + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())) +
               " started generating file.");
-
-    // Limit retries to prevent infinite loop
     const size_t maxRetries = 99999;
     size_t retries = 0;
 
@@ -114,7 +109,6 @@ std::future<Result> DataGen::generateFile(size_t fileSizeMB) {
     }
 
     if (retries >= maxRetries) {
-        // 返回一个立即完成的失败 future
         std::promise<Result> p;
         p.set_value(Result(Result::Ret::kError,
                            "Exceeded maximum retries for KV generation"));
@@ -124,13 +118,10 @@ std::future<Result> DataGen::generateFile(size_t fileSizeMB) {
     std::sort(data.begin(), data.end(), ComparePair());
 
     if (data.empty()) {
-        // 返回一个立刻 ready 的 future，结果为 OK
         std::promise<Result> p;
         p.set_value(Result(Result::Ret::kOk, "No data generated for file."));
         return p.get_future();
     }
-
-    // 异步写盘
     return fileManager_->write(data);
 }
 

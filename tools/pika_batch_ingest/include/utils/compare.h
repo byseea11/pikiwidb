@@ -13,7 +13,6 @@ struct ComparePair
         if (rhs.key < lhs.key)
             return false;
 
-        // keys are equal
         if (lhs.timestamp != rhs.timestamp)
             return lhs.timestamp > rhs.timestamp;
 

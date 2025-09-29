@@ -33,14 +33,12 @@ public:
     Result(Ret ret, const std::string &message = "")
         : ret_(ret), message_(message) {}
 
-    // 获取状态
     bool isError() const
     {
         return ret_ != kOk && ret_ != kFileCreated && ret_ != kDataGenerated;
     }
     std::string message_raw() const { return message_; }
 
-    // 返回状态和消息
     std::string message() const
     {
         std::string result;
@@ -138,7 +136,6 @@ public:
         }
     }
 
-    // 设置状态和消息
     void setRes(Ret ret, const std::string &content = "")
     {
         ret_ = ret;

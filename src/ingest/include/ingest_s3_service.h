@@ -12,12 +12,9 @@ class S3Service {
   S3Service();
   ~S3Service();
 
-  // conf_path: 比如 PROJECT_ROOT_DIR/conf/s3.conf
-  // err: 发生错误时填充
   bool Start(const std::string& conf_path, std::string* err);
   void Stop();
 
-  // 供调用方（命令层）使用
   std::shared_ptr<Aws::S3::S3Client> Client();
   std::shared_ptr<Aws::Transfer::TransferManager> TransferMgr();
 
@@ -53,10 +50,10 @@ class S3Service {
   std::shared_ptr<Aws::Utils::Threading::PooledThreadExecutor> xfer_pool_;
 
   // dowmload sst
-  int retry_max_attempts_ = 3;  // 默认最多 3 次（首次 + 2 次重试）
-  int retry_base_ms_ = 50;      // 初始回退 50ms
-  int retry_max_ms_ = 2000;     // 最大回退 2s
-  double retry_jitter_ = 0.2;   // ±20% 抖动
+  int retry_max_attempts_ = 3;  
+  int retry_base_ms_ = 50;     
+  int retry_max_ms_ = 2000;     
+  double retry_jitter_ = 0.2;  
   std::unique_ptr<SstDownloader> downloader_;
 
   // 状态

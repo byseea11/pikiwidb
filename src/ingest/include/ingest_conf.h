@@ -24,7 +24,7 @@ class IngestConf : public pstd::BaseConf {
     int ret = LoadConf();
     if (ret) return ret;
 
-    // ---------- 导入期（激进配置，适配 100–500GB 导入） ----------
+    // 导入期
     GetConfInt("ingest.aggr.max_background_jobs", &aggr_max_background_jobs_);
     if (aggr_max_background_jobs_ <= 0) aggr_max_background_jobs_ = 16;
 
@@ -49,11 +49,10 @@ class IngestConf : public pstd::BaseConf {
     GetConfStr("ingest.aggr.disable-auto-compactions", &aggr_disable_auto_compactions_str_);
     if (aggr_disable_auto_compactions_str_.empty()) aggr_disable_auto_compactions_str_ = "true";
 
-    // 配置 max-total-wal-size
     GetConfInt64("ingest.aggr.max_total_wal_size", &aggr_max_total_wal_size_);
     if (aggr_max_total_wal_size_ <= 0) aggr_max_total_wal_size_ = 1073741824;  // 默认 1GB
 
-    // ---------- 恢复期（生产） ----------
+    // 恢复期
     GetConfInt("ingest.restore.max_background_jobs", &restore_max_background_jobs_);
     if (restore_max_background_jobs_ <= 0) restore_max_background_jobs_ = 4;
 
@@ -78,11 +77,9 @@ class IngestConf : public pstd::BaseConf {
     GetConfStr("ingest.restore.disable-auto-compactions", &restore_disable_auto_compactions_str_);
     if (restore_disable_auto_compactions_str_.empty()) restore_disable_auto_compactions_str_ = "false";
 
-    // 配置 max-total-wal-size
     GetConfInt64("ingest.restore.max_total_wal_size", &restore_max_total_wal_size_);
     if (restore_max_total_wal_size_ <= 0) restore_max_total_wal_size_ = 268435456;  // 默认 256MB
 
-    // ---------- IngestExternalFileOptions ----------
     GetConfStr("ingest.options.move-files", &opt_move_files_);
     if (opt_move_files_.empty()) opt_move_files_ = "true";
 
@@ -107,11 +104,10 @@ class IngestConf : public pstd::BaseConf {
     return 0;
   }
 
-  // 导入期：应用激进配置（适用于批量导入）
   rocksdb::Status ApplyAggressiveOptions(rocksdb::DB* db, rocksdb::ColumnFamilyHandle* cf) {
     if (!db || !cf) return rocksdb::Status::InvalidArgument("db/cf nullptr");
 
-    // CF: 先关自动压缩
+    // 先关自动压缩
     {
       std::unordered_map<std::string, std::string> m;
       m["disable_auto_compactions"] = aggr_disable_auto_compactions_str_;
@@ -119,7 +115,6 @@ class IngestConf : public pstd::BaseConf {
       if (!s.ok()) return s;
     }
 
-    // CF: level0 与 pending-bytes
     {
       std::unordered_map<std::string, std::string> m;
       m["level0_file_num_compaction_trigger"] = std::to_string(aggr_l0_compact_trigger_);
@@ -131,7 +126,6 @@ class IngestConf : public pstd::BaseConf {
       if (!s.ok()) return s;
     }
 
-    // DB: 后台任务/子压缩/WAL
     {
       std::unordered_map<std::string, std::string> m;
       m["max_background_jobs"] = std::to_string(aggr_max_background_jobs_);
@@ -144,11 +138,9 @@ class IngestConf : public pstd::BaseConf {
     return rocksdb::Status::OK();
   }
 
-  // 恢复期：恢复为日常配置
   rocksdb::Status ApplyRestoreOptions(rocksdb::DB* db, rocksdb::ColumnFamilyHandle* cf) {
     if (!db || !cf) return rocksdb::Status::InvalidArgument("db/cf nullptr");
 
-    // CF: 恢复压缩与阈值
     {
       std::unordered_map<std::string, std::string> m;
       m["disable_auto_compactions"] = restore_disable_auto_compactions_str_;
@@ -161,7 +153,6 @@ class IngestConf : public pstd::BaseConf {
       if (!s.ok()) return s;
     }
 
-    // DB: 恢复后台任务/子压缩/WAL
     {
       std::unordered_map<std::string, std::string> m;
       m["max_background_jobs"] = std::to_string(restore_max_background_jobs_);
@@ -174,7 +165,6 @@ class IngestConf : public pstd::BaseConf {
     return rocksdb::Status::OK();
   }
 
-  // 生成 IngestExternalFileOptions
   rocksdb::IngestExternalFileOptions MakeIngestOptions() const {
     rocksdb::IngestExternalFileOptions opt;
     opt.move_files = (opt_move_files_ == "true");
@@ -187,13 +177,11 @@ class IngestConf : public pstd::BaseConf {
     return opt;
   }
 
-  // ====== Getters（按需精简）======
   std::string conf_path() const {
     std::shared_lock lk(rwlock_);
     return conf_path_;
   }
 
-  // Aggressive
   int aggr_max_background_jobs() const { return aggr_max_background_jobs_; }
   int aggr_max_subcompactions() const { return aggr_max_subcompactions_; }
   int aggr_l0_compact_trigger() const { return aggr_l0_compact_trigger_; }
@@ -204,7 +192,6 @@ class IngestConf : public pstd::BaseConf {
   std::string aggr_disable_auto_compactions_str() const { return aggr_disable_auto_compactions_str_; }
   int64_t aggr_max_total_wal_size() const { return aggr_max_total_wal_size_; }
 
-  // Restore
   int restore_max_background_jobs() const { return restore_max_background_jobs_; }
   int restore_max_subcompactions() const { return restore_max_subcompactions_; }
   int restore_l0_compact_trigger() const { return restore_l0_compact_trigger_; }
@@ -215,7 +202,6 @@ class IngestConf : public pstd::BaseConf {
   std::string restore_disable_auto_compactions_str() const { return restore_disable_auto_compactions_str_; }
   int64_t restore_max_total_wal_size() const { return restore_max_total_wal_size_; }
 
-  // ====== Setters（带差异记录，便于 ConfigRewrite）======
   void SetAggrMaxBackgroundJobs(int v) {
     std::lock_guard lk(rwlock_);
     TryPushDiffCommands("ingest.aggr.max_background_jobs", std::to_string(v));
@@ -262,7 +248,6 @@ class IngestConf : public pstd::BaseConf {
     aggr_disable_auto_compactions_str_ = v;
   }
 
-  // 设置恢复期的配置
   void SetRestoreMaxBackgroundJobs(int value) {
     std::lock_guard<std::shared_mutex> lk(rwlock_);
     TryPushDiffCommands("ingest.restore.max_background_jobs", std::to_string(value));
@@ -309,7 +294,6 @@ class IngestConf : public pstd::BaseConf {
     restore_disable_auto_compactions_str_ = value;
   }
 
-  // 设置 Ingest 选项
   void SetOptMoveFiles(const std::string& value) {
     std::lock_guard<std::shared_mutex> lk(rwlock_);
     TryPushDiffCommands("ingest.options.move-files", value);
@@ -345,11 +329,10 @@ class IngestConf : public pstd::BaseConf {
     TryPushDiffCommands("ingest.options.allow-global-seqno", value);
     opt_allow_global_seqno_ = value;
   }
-  // 按 PikaConf 风格，落盘差异项
   int ConfigRewrite() {
     int err = 0;
     for (const auto& kv : diff_commands_) {
-      if (!SetConfStr(kv.first, kv.second)) {  // 改为 SetConfStr
+      if (!SetConfStr(kv.first, kv.second)) {  
         err = -1;
       }
     }
@@ -358,15 +341,12 @@ class IngestConf : public pstd::BaseConf {
   }
 
  private:
-  // 与 PikaConf 一致的差异缓存
   void TryPushDiffCommands(const std::string& key, const std::string& value) { diff_commands_[key] = value; }
 
-  // ====== 配置项 ======
   std::string conf_path_;
   mutable std::shared_mutex rwlock_;
   std::map<std::string, std::string> diff_commands_;
 
-  // —— 导入期（激进配置，适配 100–500GB）——
   int aggr_max_background_jobs_ = 16;
   int aggr_max_subcompactions_ = 8;
   int aggr_l0_compact_trigger_ = 1000;
@@ -377,7 +357,6 @@ class IngestConf : public pstd::BaseConf {
   int64_t aggr_max_total_wal_size_ = 1073741824;         // 1GB 默认值
   std::string aggr_disable_auto_compactions_str_ = "true";
 
-  // —— 导入后恢复为日常（更保守）——
   int aggr_dummy_pad_ = 0; 
 
   int restore_max_background_jobs_ = 4;
@@ -390,7 +369,6 @@ class IngestConf : public pstd::BaseConf {
   int64_t restore_max_total_wal_size_ = 268435456;         // 256MB 默认值
   std::string restore_disable_auto_compactions_str_ = "false";
 
-  // —— IngestExternalFileOptions ——
   std::string opt_move_files_ = "true";
   std::string opt_verify_ = "true";
   std::string opt_snapshot_consistency_ = "true";

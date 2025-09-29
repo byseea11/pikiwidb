@@ -88,3 +88,4 @@ conf/pika_slave.conf
 conf/pika_master.conf
 conf/pika_master.conftests/integration/pika
 tests/integration/pika
+src/redis-server
